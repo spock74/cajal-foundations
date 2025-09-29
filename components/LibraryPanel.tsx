@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { FileText, Trash2, FileSearch, Settings, HelpCircle, Bot, Code, Share2 } from 'lucide-react';
 import { LibraryItem } from '../types';
 
@@ -12,25 +12,47 @@ interface LibraryPanelProps {
   onDeleteItem: (id: number) => void;
 }
 
-const ActionButton: React.FC<{ icon: React.ReactNode; label: string }> = ({ icon, label }) => (
-  <button className="flex flex-col items-center justify-center gap-1 p-2 text-xs text-center text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-lg transition-colors">
+// NOTA: Movido para fora do componente principal para evitar recriação a cada renderização, o que pode causar problemas de estado e desempenho.
+const ActionButton: React.FC<{ icon: React.ReactNode; label: string; title: string }> = ({ icon, label, title }) => (
+  <button 
+    title={title}
+    className="flex flex-col items-center justify-center gap-1 p-2 text-xs text-center text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-lg transition-colors"
+  >
     {icon}
     <span className="truncate">{label}</span>
   </button>
 );
 
 const LibraryPanel: React.FC<LibraryPanelProps> = ({ items, onDeleteItem }) => {
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredItems = items.filter(item => 
+    item.content.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="p-4 bg-white dark:bg-[#1E1E1E] shadow-lg rounded-xl h-full flex flex-col border border-gray-200 dark:border-[rgba(255,255,255,0.05)] transition-colors duration-200">
       <h2 className="text-xl font-semibold text-gray-800 dark:text-[#E2E2E2] mb-3">Biblioteca</h2>
       
+      {/* Search Input */}
+      <div className="relative mb-3">
+        <FileSearch size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none" />
+        <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Pesquisar na biblioteca..."
+            className="w-full h-8 pl-8 pr-2.5 border border-gray-300 dark:border-[rgba(255,255,255,0.1)] bg-gray-100 dark:bg-[#2C2C2C] text-gray-800 dark:text-[#E2E2E2] placeholder-gray-400 dark:placeholder-[#777777] rounded-lg focus:ring-1 focus:ring-blue-500 dark:focus:ring-white/20 transition-shadow text-sm"
+        />
+      </div>
+
       <div className="grid grid-cols-3 gap-2 mb-4">
-        <ActionButton icon={<FileSearch size={20} />} label="Buscar" />
-        <ActionButton icon={<Share2 size={20} />} label="Compart." />
-        <ActionButton icon={<Code size={20} />} label="Exportar" />
-        <ActionButton icon={<Bot size={20} />} label="Ações" />
-        <ActionButton icon={<Settings size={20} />} label="Config." />
-        <ActionButton icon={<HelpCircle size={20} />} label="Ajuda" />
+        <ActionButton icon={<FileSearch size={20} />} label="Pesquisar" title="Pesquisar na Biblioteca (local)" />
+        <ActionButton icon={<Share2 size={20} />} label="Compart." title="Compartilhar Biblioteca (futuro)" />
+        <ActionButton icon={<Code size={20} />} label="Exportar" title="Exportar Biblioteca (futuro)" />
+        <ActionButton icon={<Bot size={20} />} label="Ações IA" title="Ações de IA na Biblioteca (futuro)" />
+        <ActionButton icon={<Settings size={20} />} label="Config." title="Configurações da Biblioteca (futuro)" />
+        <ActionButton icon={<HelpCircle size={20} />} label="Ajuda" title="Ajuda sobre a Biblioteca" />
       </div>
 
       <div className="flex-grow overflow-y-auto space-y-2 chat-container -mr-2 pr-2">
@@ -40,8 +62,14 @@ const LibraryPanel: React.FC<LibraryPanelProps> = ({ items, onDeleteItem }) => {
             <p className="text-sm font-medium">Sua biblioteca está vazia.</p>
             <p className="text-xs">Salve respostas do chat para vê-las aqui.</p>
           </div>
+        ) : filteredItems.length === 0 ? (
+           <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 dark:text-gray-500">
+            <FileSearch size={32} className="mb-2" />
+            <p className="text-sm font-medium">Nenhum resultado encontrado.</p>
+            <p className="text-xs">Tente uma busca diferente.</p>
+          </div>
         ) : (
-          items.map(item => (
+          filteredItems.map(item => (
             <div 
               key={item.id} 
               className="p-2.5 bg-gray-100 dark:bg-[#2C2C2C] border border-gray-200 dark:border-[rgba(255,255,255,0.05)] rounded-lg group"
@@ -55,6 +83,7 @@ const LibraryPanel: React.FC<LibraryPanelProps> = ({ items, onDeleteItem }) => {
                 </div>
                 <button
                   onClick={() => item.id && onDeleteItem(item.id)}
+                  title="Excluir item da biblioteca"
                   className="p-1 text-gray-500 dark:text-[#A8ABB4] hover:text-red-500 dark:hover:text-[#f87171] rounded-md hover:bg-red-100/50 dark:hover:bg-[rgba(255,0,0,0.1)] transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
                   aria-label="Excluir item"
                 >
