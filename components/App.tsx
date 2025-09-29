@@ -4,10 +4,10 @@
 */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { ChatMessage, MessageSender, KnowledgeGroup, KnowledgeSource } from './types';
-import { generateContentWithSources, getInitialSuggestions } from './services/geminiService';
-import KnowledgeBaseManager from './components/KnowledgeBaseManager';
-import ChatInterface from './components/ChatInterface';
+import { ChatMessage, MessageSender, KnowledgeGroup, KnowledgeSource } from '../types';
+import { generateContentWithSources, getInitialSuggestions } from '../services/geminiService';
+import KnowledgeBaseManager from './KnowledgeBaseManager';
+import ChatInterface from './ChatInterface';
 
 const GEMINI_DOCS_URLS = [
   "https://ai.google.dev/gemini-api/docs",
@@ -151,6 +151,17 @@ const App: React.FC = () => {
     );
   };
 
+  const handleAddGroup = (groupName: string) => {
+    const newGroupId = `${groupName.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
+    const newGroup: KnowledgeGroup = {
+      id: newGroupId,
+      name: groupName,
+      sources: [],
+    };
+    setKnowledgeGroups(prev => [...prev, newGroup]);
+    setActiveGroupId(newGroupId);
+  };
+
   const handleSendMessage = async (query: string) => {
     if (!query.trim() || isLoading || isFetchingSuggestions) return;
 
@@ -244,6 +255,7 @@ const App: React.FC = () => {
             knowledgeGroups={knowledgeGroups}
             activeGroupId={activeGroupId}
             onSetGroupId={setActiveGroupId}
+            onAddGroup={handleAddGroup}
             onCloseSidebar={() => setIsSidebarOpen(false)}
           />
         </div>

@@ -15,6 +15,7 @@ interface KnowledgeBaseManagerProps {
   knowledgeGroups: KnowledgeGroup[];
   activeGroupId: string;
   onSetGroupId: (id: string) => void;
+  onAddGroup: (groupName: string) => void;
   onCloseSidebar?: () => void;
 }
 
@@ -26,11 +27,23 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
   knowledgeGroups,
   activeGroupId,
   onSetGroupId,
+  onAddGroup,
   onCloseSidebar,
 }) => {
   const [currentUrlInput, setCurrentUrlInput] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isReadingFile, setIsReadingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+
+  const MAX_FILE_SIZE_MB = 10;
+  const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+  const SUPPORTED_FILE_TYPES = [
+    'application/pdf',
+    'text/plain',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  ];
 
   const isValidUrl = (urlString: string): boolean => {
     try {
@@ -73,25 +86,33 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
       return;
     }
 
-    if (file.type !== 'application/pdf') {
-      setError('Only PDF files are currently supported.');
+    if (!SUPPORTED_FILE_TYPES.includes(file.type)) {
+      setError('Only PDF, DOCX, and TXT files are supported.');
       return;
     }
 
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      setError(`File is too large. Maximum size is ${MAX_FILE_SIZE_MB}MB.`);
+      return;
+    }
+
+    setIsReadingFile(true);
     const reader = new FileReader();
     reader.onload = (e) => {
       const base64 = (e.target?.result as string).split(',')[1];
       const newSource: KnowledgeSource = {
         type: 'file',
-        id: `${file.name}-${file.lastModified}`,
+        id: `${file.name}-${file.lastModified}-${file.size}`,
         name: file.name,
         mimeType: file.type,
         content: base64,
       };
       onAddSource(newSource);
+      setIsReadingFile(false);
     };
     reader.onerror = () => {
       setError('Failed to read the file.');
+      setIsReadingFile(false);
     };
     reader.readAsDataURL(file);
 
@@ -103,6 +124,29 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
   const handleUploadClick = () => {
     fileInputRef.current?.click();
   };
+
+  const handleCreateGroup = () => {
+    const trimmedName = newGroupName.trim();
+    if (!trimmedName) {
+      setError("Group name cannot be empty.");
+      return;
+    }
+    if (knowledgeGroups.some(g => g.name.toLowerCase() === trimmedName.toLowerCase())) {
+      setError("A group with this name already exists.");
+      return;
+    }
+    setError(null);
+    onAddGroup(trimmedName);
+    setNewGroupName('');
+    setIsCreatingGroup(false);
+  };
+  
+  const handleCancelCreate = () => {
+    setError(null);
+    setNewGroupName('');
+    setIsCreatingGroup(false);
+  };
+
 
   const activeGroupName = knowledgeGroups.find(g => g.id === activeGroupId)?.name || "Unknown Group";
 
@@ -122,27 +166,65 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
       </div>
       
       <div className="mb-3">
-        <label htmlFor="url-group-select-kb" className="block text-sm font-medium text-[#A8ABB4] mb-1">
-          Active Group
-        </label>
-        <div className="relative w-full">
-          <select
-            id="url-group-select-kb"
-            value={activeGroupId}
-            onChange={(e) => onSetGroupId(e.target.value)}
-            className="w-full py-2 pl-3 pr-8 appearance-none border border-[rgba(255,255,255,0.1)] bg-[#2C2C2C] text-[#E2E2E2] rounded-md focus:ring-1 focus:ring-white/20 focus:border-white/20 text-sm"
-          >
-            {knowledgeGroups.map(group => (
-              <option key={group.id} value={group.id}>
-                {group.name}
-              </option>
-            ))}
-          </select>
-          <ChevronDown
-            className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#A8ABB4] pointer-events-none"
-            aria-hidden="true"
-          />
+        <div className="flex justify-between items-center mb-1">
+          <label htmlFor="url-group-select-kb" className="block text-sm font-medium text-[#A8ABB4]">
+            Active Group
+          </label>
+          {!isCreatingGroup && (
+            <button
+              onClick={() => setIsCreatingGroup(true)}
+              className="text-xs text-[#79B8FF] hover:text-white font-medium"
+            >
+              New Group
+            </button>
+          )}
         </div>
+        {isCreatingGroup ? (
+          <div className="space-y-2">
+            <input
+              type="text"
+              value={newGroupName}
+              onChange={(e) => setNewGroupName(e.target.value)}
+              placeholder="New group name..."
+              className="w-full h-8 py-1 px-2.5 border border-[rgba(255,255,255,0.1)] bg-[#2C2C2C] text-[#E2E2E2] placeholder-[#777777] rounded-lg focus:ring-1 focus:ring-white/20 focus:border-white/20 transition-shadow text-sm"
+              onKeyPress={(e) => e.key === 'Enter' && handleCreateGroup()}
+              autoFocus
+            />
+            <div className="flex items-center justify-end gap-2">
+              <button
+                onClick={handleCancelCreate}
+                className="px-2.5 py-1 text-xs text-[#A8ABB4] hover:bg-white/5 rounded-md transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateGroup}
+                className="px-2.5 py-1 text-xs bg-white/[.12] hover:bg-white/20 text-white rounded-md transition-colors"
+              >
+                Create
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="relative w-full">
+            <select
+              id="url-group-select-kb"
+              value={activeGroupId}
+              onChange={(e) => onSetGroupId(e.target.value)}
+              className="w-full py-2 pl-3 pr-8 appearance-none border border-[rgba(255,255,255,0.1)] bg-[#2C2C2C] text-[#E2E2E2] rounded-md focus:ring-1 focus:ring-white/20 focus:border-white/20 text-sm"
+            >
+              {knowledgeGroups.map(group => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#A8ABB4] pointer-events-none"
+              aria-hidden="true"
+            />
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-2 mb-3">
@@ -153,23 +235,28 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
           placeholder="https://docs.example.com"
           className="flex-grow h-8 py-1 px-2.5 border border-[rgba(255,255,255,0.1)] bg-[#2C2C2C] text-[#E2E2E2] placeholder-[#777777] rounded-lg focus:ring-1 focus:ring-white/20 focus:border-white/20 transition-shadow text-sm"
           onKeyPress={(e) => e.key === 'Enter' && handleAddUrl()}
+          disabled={isReadingFile || isCreatingGroup}
         />
         <button
           onClick={handleAddUrl}
-          disabled={sources.length >= maxSources}
+          disabled={sources.length >= maxSources || isReadingFile || isCreatingGroup}
           className="h-8 w-8 p-1.5 bg-white/[.12] hover:bg-white/20 text-white rounded-lg transition-colors disabled:bg-[#4A4A4A] disabled:text-[#777777] flex items-center justify-center flex-shrink-0"
           aria-label="Add URL"
         >
           <Plus size={16} />
         </button>
-        <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".pdf" className="hidden" aria-hidden="true" />
+        <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".pdf,.txt,.docx" className="hidden" aria-hidden="true" />
         <button
           onClick={handleUploadClick}
-          disabled={sources.length >= maxSources}
+          disabled={sources.length >= maxSources || isReadingFile || isCreatingGroup}
           className="h-8 w-8 p-1.5 bg-white/[.12] hover:bg-white/20 text-white rounded-lg transition-colors disabled:bg-[#4A4A4A] disabled:text-[#777777] flex items-center justify-center flex-shrink-0"
-          aria-label="Upload PDF"
+          aria-label="Upload file"
         >
-          <Upload size={16} />
+          {isReadingFile ? (
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+          ) : (
+            <Upload size={16} />
+          )}
         </button>
       </div>
       {error && <p className="text-xs text-[#f87171] mb-2">{error}</p>}
