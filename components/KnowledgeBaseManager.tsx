@@ -17,6 +17,7 @@ interface KnowledgeBaseManagerProps {
   onSetGroupId: (id: string) => void;
   onAddGroup: (groupName: string) => void;
   onCloseSidebar?: () => void;
+  onClearAllSources: () => void;
 }
 
 const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({ 
@@ -29,6 +30,7 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
   onSetGroupId,
   onAddGroup,
   onCloseSidebar,
+  onClearAllSources,
 }) => {
   const [currentUrlInput, setCurrentUrlInput] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +39,7 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
+  const [isConfirmingClear, setIsConfirmingClear] = useState(false);
 
   const MAX_FILE_SIZE_MB = 10;
   const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
@@ -54,6 +57,10 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
       return () => clearTimeout(timer);
     }
   }, [successMessage]);
+
+  useEffect(() => {
+    setIsConfirmingClear(false);
+  }, [activeGroupId, sources.length]);
 
   const isValidUrl = (urlString: string): boolean => {
     try {
@@ -153,6 +160,10 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
     setIsCreatingGroup(false);
   };
 
+  const handleConfirmClear = () => {
+    onClearAllSources();
+    setIsConfirmingClear(false);
+  };
 
   const activeGroupName = knowledgeGroups.find(g => g.id === activeGroupId)?.name || "Unknown Group";
 
@@ -316,6 +327,39 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
           </div>
         ))}
       </div>
+
+      {sources.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-[rgba(255,255,255,0.05)] flex-shrink-0">
+          {isConfirmingClear ? (
+            <div className="text-center">
+              <p className="text-sm text-white mb-2">Clear all sources in this group?</p>
+              <div className="flex justify-center gap-2">
+                <button
+                  onClick={() => setIsConfirmingClear(false)}
+                  className="px-3 py-1 text-xs text-[#A8ABB4] hover:bg-white/5 rounded-md transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmClear}
+                  className="px-3 py-1 text-xs bg-[#f87171]/20 hover:bg-[#f87171]/30 text-[#f87171] rounded-md transition-colors"
+                >
+                  Confirm Clear
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsConfirmingClear(true)}
+              disabled={isReadingFile || isCreatingGroup}
+              className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs text-[#f87171]/90 bg-[#f87171]/10 hover:bg-[#f87171]/20 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Trash2 size={14} />
+              <span>Clear All Sources ({sources.length})</span>
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 };

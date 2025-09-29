@@ -162,6 +162,17 @@ const App: React.FC = () => {
     setActiveGroupId(newGroupId);
   };
 
+  const handleClearAllSources = () => {
+    setKnowledgeGroups(prevGroups =>
+      prevGroups.map(group => {
+        if (group.id === activeGroupId) {
+          return { ...group, sources: [] };
+        }
+        return group;
+      })
+    );
+  };
+
   const handleSendMessage = async (query: string) => {
     if (!query.trim() || isLoading || isFetchingSuggestions) return;
 
@@ -257,6 +268,7 @@ const App: React.FC = () => {
             onSetGroupId={setActiveGroupId}
             onAddGroup={handleAddGroup}
             onCloseSidebar={() => setIsSidebarOpen(false)}
+            onClearAllSources={handleClearAllSources}
           />
         </div>
 
