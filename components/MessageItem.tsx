@@ -6,7 +6,8 @@
 import React from 'react';
 import { marked } from 'marked';
 import hljs from 'highlight.js';
-import { ChatMessage, MessageSender, UrlContextMetadataItem } from '../types';
+import { ChatMessage, MessageSender } from '../types';
+import { BrainCircuit } from 'lucide-react';
 
 // Configure marked to use highlight.js for syntax highlighting
 marked.setOptions({
@@ -19,6 +20,7 @@ marked.setOptions({
 
 interface MessageItemProps {
   message: ChatMessage;
+  onGenerateMindMap?: (text: string) => void;
 }
 
 const SenderAvatar: React.FC<{ sender: MessageSender }> = ({ sender }) => {
@@ -47,7 +49,7 @@ const SenderAvatar: React.FC<{ sender: MessageSender }> = ({ sender }) => {
   );
 };
 
-const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
+const MessageItem: React.FC<MessageItemProps> = ({ message, onGenerateMindMap }) => {
   const isUser = message.sender === MessageSender.USER;
   const isModel = message.sender === MessageSender.MODEL;
   const isSystem = message.sender === MessageSender.SYSTEM;
@@ -95,32 +97,46 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
             renderMessageContent()
           )}
           
-          {isModel && message.urlContext && message.urlContext.length > 0 && (
-            <div className="mt-2.5 pt-2.5 border-t border-[rgba(255,255,255,0.1)]">
-              <h4 className="text-xs font-semibold text-[#A8ABB4] mb-1">Context URLs Retrieved:</h4>
-              <ul className="space-y-0.5">
-                {message.urlContext.map((meta, index) => {
-                  const statusText = typeof meta.urlRetrievalStatus === 'string' 
-                    ? meta.urlRetrievalStatus.replace('URL_RETRIEVAL_STATUS_', '') 
-                    : 'UNKNOWN';
-                  const isSuccess = meta.urlRetrievalStatus === 'URL_RETRIEVAL_STATUS_SUCCESS';
+          {(isModel && !message.isLoading && message.text) && (
+            <div className="mt-2.5 pt-2.5 border-t border-[rgba(255,255,255,0.1)] flex items-center justify-between">
+              {message.urlContext && message.urlContext.length > 0 ? (
+                <div>
+                  <h4 className="text-xs font-semibold text-[#A8ABB4] mb-1">Context URLs Retrieved:</h4>
+                  <ul className="space-y-0.5">
+                    {message.urlContext.map((meta, index) => {
+                      const statusText = typeof meta.urlRetrievalStatus === 'string' 
+                        ? meta.urlRetrievalStatus.replace('URL_RETRIEVAL_STATUS_', '') 
+                        : 'UNKNOWN';
+                      const isSuccess = meta.urlRetrievalStatus === 'URL_RETRIEVAL_STATUS_SUCCESS';
 
-                  return (
-                    <li key={index} className="text-[11px] text-[#A8ABB4]">
-                      <a href={meta.retrievedUrl} target="_blank" rel="noopener noreferrer" className="hover:underline break-all text-[#79B8FF]">
-                        {meta.retrievedUrl}
-                      </a>
-                      <span className={`ml-1.5 px-1 py-0.5 rounded-sm text-[9px] ${
-                        isSuccess
-                          ? 'bg-white/[.12] text-white'
-                          : 'bg-slate-600/30 text-slate-400'
-                      }`}>
-                        {statusText}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
+                      return (
+                        <li key={index} className="text-[11px] text-[#A8ABB4]">
+                          <a href={meta.retrievedUrl} target="_blank" rel="noopener noreferrer" className="hover:underline break-all text-[#79B8FF]">
+                            {meta.retrievedUrl}
+                          </a>
+                          <span className={`ml-1.5 px-1 py-0.5 rounded-sm text-[9px] ${
+                            isSuccess
+                              ? 'bg-white/[.12] text-white'
+                              : 'bg-slate-600/30 text-slate-400'
+                          }`}>
+                            {statusText}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ) : <div />}
+              {onGenerateMindMap && (
+                <button
+                  onClick={() => onGenerateMindMap(message.text)}
+                  className="flex items-center gap-1.5 ml-auto text-xs text-[#A8ABB4] hover:text-white bg-white/5 hover:bg-white/10 px-2 py-1 rounded-md transition-colors"
+                  title="Visualize as a Mind Map"
+                >
+                  <BrainCircuit size={14} />
+                  <span>Visualize</span>
+                </button>
+              )}
             </div>
           )}
         </div>

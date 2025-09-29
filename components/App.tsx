@@ -5,9 +5,10 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { ChatMessage, MessageSender, KnowledgeGroup, KnowledgeSource } from '../types';
-import { generateContentWithSources, getInitialSuggestions } from '../services/geminiService';
+import { generateContentWithSources, getInitialSuggestions, generateMindMapFromText } from '../services/geminiService';
 import KnowledgeBaseManager from './KnowledgeBaseManager';
 import ChatInterface from './ChatInterface';
+import MindMapModal from './MindMapModal';
 
 const GEMINI_DOCS_URLS = [
   "https://ai.google.dev/gemini-api/docs",
@@ -53,6 +54,22 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingSuggestions, setIsFetchingSuggestions] = useState(false);
   const [initialQuerySuggestions, setInitialQuerySuggestions] = useState<string[]>([]);
+  
+  const [mindMapState, setMindMapState] = useState<{
+    isOpen: boolean;
+    isLoading: boolean;
+    error: string | null;
+    title: string;
+    rawNodes: any[];
+    rawEdges: any[];
+  }>({
+    isOpen: false,
+    isLoading: false,
+    error: null,
+    title: '',
+    rawNodes: [],
+    rawEdges: [],
+  });
   
   const MAX_SOURCES = 20;
 
@@ -234,6 +251,40 @@ const App: React.FC = () => {
     handleSendMessage(query);
   };
   
+  const handleGenerateMindMap = async (text: string) => {
+    setMindMapState({
+      isOpen: true,
+      isLoading: true,
+      error: null,
+      title: 'Generating Mind Map...',
+      rawNodes: [],
+      rawEdges: [],
+    });
+    try {
+      const { nodes, edges } = await generateMindMapFromText(text);
+      if (nodes.length === 0) {
+        throw new Error("The model couldn't find any concepts to create a mind map from this text.");
+      }
+      setMindMapState(prev => ({
+        ...prev,
+        isLoading: false,
+        title: 'Mind Map',
+        rawNodes: nodes.map(n => ({ ...n, data: { label: n.label } })), // Adapt to React Flow format
+        rawEdges: edges,
+      }));
+    } catch (e: any) {
+      setMindMapState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: e.message || 'An unknown error occurred while generating the mind map.'
+      }));
+    }
+  };
+
+  const handleCloseMindMap = () => {
+    setMindMapState(prev => ({ ...prev, isOpen: false }));
+  };
+
   const chatPlaceholder = currentSourcesForChat.length > 0 
     ? `Ask questions about "${activeGroup?.name || 'current documents'}"...`
     : "Select a group and/or add URLs/files to the knowledge base to enable chat.";
@@ -283,9 +334,20 @@ const App: React.FC = () => {
             onSuggestedQueryClick={handleSuggestedQueryClick}
             isFetchingSuggestions={isFetchingSuggestions}
             onToggleSidebar={() => setIsSidebarOpen(true)}
+            onGenerateMindMap={handleGenerateMindMap}
           />
         </div>
       </div>
+      
+      <MindMapModal
+        isOpen={mindMapState.isOpen}
+        onClose={handleCloseMindMap}
+        isLoading={mindMapState.isLoading}
+        error={mindMapState.error}
+        title={mindMapState.title}
+        nodes={mindMapState.rawNodes}
+        edges={mindMapState.rawEdges}
+      />
     </div>
   );
 };

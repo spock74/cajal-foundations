@@ -4,7 +4,7 @@
 */
 
 
-import { GoogleGenAI, GenerateContentResponse, Tool, HarmCategory, HarmBlockThreshold, Content, Part } from "@google/genai";
+import { GoogleGenAI, GenerateContentResponse, Tool, HarmCategory, HarmBlockThreshold, Content, Part, Type } from "@google/genai";
 import { UrlContextMetadataItem, KnowledgeSource } from '../types';
 
 // IMPORTANT: The API key MUST be set as an environment variable `process.env.API_KEY`
@@ -149,5 +149,74 @@ ${urlList}`;
       throw new Error(`Failed to get initial suggestions from AI: ${error.message}`);
     }
     throw new Error("Failed to get initial suggestions from AI due to an unknown error.");
+  }
+};
+
+
+export const generateMindMapFromText = async (textToAnalyze: string): Promise<{ nodes: any[], edges: any[] }> => {
+  const currentAi = getAiInstance();
+  const prompt = `Analyze the following text and extract the key concepts and their relationships as a mind map. Return ONLY a JSON object with two keys: "nodes" and "edges".
+- The "nodes" array should contain objects with "id" (a unique, simple, lowercase string) and "label" (a concise, human-readable title for the concept).
+- The "edges" array should contain objects with "id" (e.g., "e1-2"), "source" (the ID of the source node), and "target" (the ID of the target node).
+- Ensure all "source" and "target" IDs in the edges array correspond to an ID in the nodes list. The graph should be a tree or a directed acyclic graph (DAG).
+
+Text to analyze:
+\`\`\`
+${textToAnalyze}
+\`\`\``;
+
+  const responseSchema = {
+    type: Type.OBJECT,
+    properties: {
+      nodes: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            id: { type: Type.STRING },
+            label: { type: Type.STRING },
+          },
+          required: ['id', 'label'],
+        },
+      },
+      edges: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            id: { type: Type.STRING },
+            source: { type: Type.STRING },
+            target: { type: Type.STRING },
+          },
+          required: ['id', 'source', 'target'],
+        },
+      },
+    },
+    required: ['nodes', 'edges'],
+  };
+
+  try {
+    const response = await currentAi.models.generateContent({
+      model: MODEL_NAME,
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: responseSchema,
+        safetySettings: safetySettings,
+      },
+    });
+
+    const jsonText = response.text.trim();
+    const parsed = JSON.parse(jsonText);
+    return {
+      nodes: parsed.nodes || [],
+      edges: parsed.edges || [],
+    };
+  } catch (error) {
+    console.error("Error calling Gemini API for mind map generation:", error);
+    if (error instanceof Error) {
+       throw new Error(`Failed to generate mind map from AI: ${error.message}`);
+    }
+    throw new Error("Failed to generate mind map from AI due to an unknown error.");
   }
 };

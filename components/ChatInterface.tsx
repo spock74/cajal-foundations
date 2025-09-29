@@ -17,6 +17,7 @@ interface ChatInterfaceProps {
   onSuggestedQueryClick?: (query: string) => void;
   isFetchingSuggestions?: boolean;
   onToggleSidebar?: () => void;
+  onGenerateMindMap?: (text: string) => void;
 }
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({ 
@@ -28,6 +29,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   onSuggestedQueryClick,
   isFetchingSuggestions,
   onToggleSidebar,
+  onGenerateMindMap,
 }) => {
   const [userQuery, setUserQuery] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -74,7 +76,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         {/* New wrapper for max-width and centering */}
         <div className="max-w-4xl mx-auto w-full">
           {messages.map((msg) => (
-            <MessageItem key={msg.id} message={msg} />
+            <MessageItem key={msg.id} message={msg} onGenerateMindMap={onGenerateMindMap} />
           ))}
           
           {isFetchingSuggestions && (
