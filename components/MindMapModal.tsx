@@ -3,13 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import ReactFlow, {
   Controls,
   MiniMap,
   Background,
-  useNodesState,
-  useEdgesState,
+  Handle,
+  Position,
   MarkerType,
 } from 'reactflow';
 import dagre from 'dagre';
@@ -28,15 +28,14 @@ interface MindMapModalProps {
 const dagreGraph = new dagre.graphlib.Graph();
 dagreGraph.setDefaultEdgeLabel(() => ({}));
 
-const nodeWidth = 172;
-const nodeHeight = 36;
+const nodeWidth = 180;
+const nodeHeight = 40;
 
-const getLayoutedElements = (nodes: any[], edges: any[], direction = 'TB') => {
-  const isHorizontal = direction === 'LR';
+const getLayoutedElements = (nodes: any[], edges: any[], direction = 'LR') => {
   dagreGraph.setGraph({
     rankdir: direction,
-    ranksep: isHorizontal ? 120 : 60,
-    nodesep: 40,
+    ranksep: 100,
+    nodesep: 25,
   });
 
   nodes.forEach((node) => {
@@ -51,8 +50,8 @@ const getLayoutedElements = (nodes: any[], edges: any[], direction = 'TB') => {
 
   nodes.forEach((node) => {
     const nodeWithPosition = dagreGraph.node(node.id);
-    node.targetPosition = isHorizontal ? 'left' : 'top';
-    node.sourcePosition = isHorizontal ? 'right' : 'bottom';
+    node.targetPosition = Position.Left;
+    node.sourcePosition = Position.Right;
     node.position = {
       x: nodeWithPosition.x - nodeWidth / 2,
       y: nodeWithPosition.y - nodeHeight / 2,
@@ -63,6 +62,24 @@ const getLayoutedElements = (nodes: any[], edges: any[], direction = 'TB') => {
   return { nodes, edges };
 };
 
+// Custom Node Component
+const MindMapNode = React.memo(({ data }: { data: any }) => {
+  return (
+    <div className="mindmap-node-content">
+      <Handle type="target" position={Position.Left} isConnectable={false} />
+      <span>{data.label}</span>
+      {data.hasChildren && (
+        <button onClick={data.onToggle} className="mindmap-node-toggle" aria-label={data.isExpanded ? 'Collapse node' : 'Expand node'}>
+          {data.isExpanded ? '<' : '>'}
+        </button>
+      )}
+      <Handle type="source" position={Position.Right} isConnectable={false} />
+    </div>
+  );
+});
+
+const nodeTypes = { mindMapNode: MindMapNode };
+
 const MindMapModal: React.FC<MindMapModalProps> = ({
   isOpen,
   onClose,
@@ -72,33 +89,102 @@ const MindMapModal: React.FC<MindMapModalProps> = ({
   nodes: rawNodes,
   edges: rawEdges,
 }) => {
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [nodes, setNodes] = useState([]);
+  const [edges, setEdges] = useState([]);
+  const [expandedNodes, setExpandedNodes] = useState(new Set<string>());
 
+  // Reset expansion state when the underlying data changes
   useEffect(() => {
-    if (rawNodes.length > 0) {
-      const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
-        rawNodes,
-        rawEdges,
-        'LR' // Set direction to Left-to-Right
-      );
-      setNodes(layoutedNodes);
-      
-      const edgeColor = '#A8ABB4';
-      setEdges(
-        layoutedEdges.map((edge) => ({
-          ...edge,
-          type: 'smoothstep', // Use smoothstep edges for curved lines
-          markerEnd: { type: MarkerType.ArrowClosed, color: edgeColor },
-          style: {
-            stroke: edgeColor,
-            strokeWidth: 1,
-          },
-        }))
-      );
-    }
-  }, [rawNodes, rawEdges, setNodes, setEdges]);
+    setExpandedNodes(new Set());
+  }, [rawNodes]);
   
+  const handleToggleNode = useCallback((nodeId: string) => {
+    setExpandedNodes(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(nodeId)) {
+        newSet.delete(nodeId);
+      } else {
+        newSet.add(nodeId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const { childrenMap, rootNode } = useMemo(() => {
+    if (rawNodes.length === 0) return { childrenMap: new Map(), rootNode: null };
+    
+    const childrenMap = new Map<string, string[]>();
+    rawEdges.forEach(edge => {
+      if (!childrenMap.has(edge.source)) childrenMap.set(edge.source, []);
+      childrenMap.get(edge.source)!.push(edge.target);
+    });
+
+    const root = rawNodes.find(n => !rawEdges.some(e => e.target === n.id)) || rawNodes[0];
+    return { childrenMap, rootNode: root };
+  }, [rawNodes, rawEdges]);
+  
+  useEffect(() => {
+    if (!rootNode) {
+      setNodes([]);
+      setEdges([]);
+      return;
+    }
+
+    const visibleNodes: any[] = [];
+    const q = [{ node: rootNode, depth: 0 }];
+    const visited = new Set([rootNode.id]);
+    
+    while (q.length > 0) {
+      const { node: currentNode, depth } = q.shift()!;
+      visibleNodes.push({ ...currentNode, depth });
+
+      if (expandedNodes.has(currentNode.id)) {
+        const children = childrenMap.get(currentNode.id) || [];
+        children.forEach(childId => {
+          if (!visited.has(childId)) {
+            const childNode = rawNodes.find(n => n.id === childId);
+            if (childNode) {
+              visited.add(childId);
+              q.push({ node: childNode, depth: depth + 1 });
+            }
+          }
+        });
+      }
+    }
+
+    const visibleNodeIds = new Set(visibleNodes.map(n => n.id));
+    const visibleEdges = rawEdges.filter(edge => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target));
+
+    const augmentedNodes = visibleNodes.map(node => ({
+      ...node,
+      type: 'mindMapNode',
+      className: `depth-${node.depth % 4}`,
+      data: {
+        ...node.data,
+        isExpanded: expandedNodes.has(node.id),
+        hasChildren: (childrenMap.get(node.id) || []).length > 0,
+        onToggle: () => handleToggleNode(node.id),
+      }
+    }));
+    
+    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(augmentedNodes, visibleEdges);
+    
+    setNodes(layoutedNodes);
+
+    const edgeColor = '#A8ABB4';
+    setEdges(layoutedEdges.map((edge: any) => ({
+      ...edge,
+      type: 'smoothstep',
+      animated: false,
+      markerEnd: { type: MarkerType.ArrowClosed, color: edgeColor },
+      style: {
+        stroke: edgeColor,
+        strokeWidth: 1,
+      },
+    })));
+
+  }, [rootNode, childrenMap, rawNodes, rawEdges, expandedNodes, handleToggleNode]);
+
   if (!isOpen) {
     return null;
   }
@@ -134,9 +220,11 @@ const MindMapModal: React.FC<MindMapModalProps> = ({
             <ReactFlow
               nodes={nodes}
               edges={edges}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
+              nodeTypes={nodeTypes}
               fitView
+              nodesDraggable={false}
+              nodesConnectable={false}
+              proOptions={{ hideAttribution: true }}
             >
               <Controls />
               <MiniMap />

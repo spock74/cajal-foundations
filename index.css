@@ -1,4 +1,5 @@
 
+
 body { 
   margin: 0; 
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
@@ -29,7 +30,7 @@ body {
 
 /* Mind Map Node Styling */
 .react-flow .react-flow__node {
-  background-color: #2C2C2C !important;
+  /* background-color is now handled by depth classes */
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
   color: #E2E2E2 !important;
   border-radius: 8px !important;
@@ -40,11 +41,46 @@ body {
   text-align: center;
 }
 
+/* Node colors by depth */
+.react-flow .react-flow__node.depth-0 { background-color: #4a5568 !important; }
+.react-flow .react-flow__node.depth-1 { background-color: #3b4759 !important; }
+.react-flow .react-flow__node.depth-2 { background-color: #2d3748 !important; }
+.react-flow .react-flow__node.depth-3 { background-color: #242c3a !important; }
+
+/* Custom Node Content & Toggle Button */
+.mindmap-node-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mindmap-node-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 50%;
+  font-size: 10px;
+  font-family: monospace;
+  line-height: 1;
+  cursor: pointer;
+  background-color: rgba(255,255,255,0.05);
+  color: #E2E2E2;
+  transition: background-color 0.2s, transform 0.2s;
+}
+.mindmap-node-toggle:hover {
+  background-color: rgba(255,255,255,0.15);
+  transform: scale(1.1);
+}
+
 .react-flow .react-flow__handle {
   width: 6px !important;
   height: 6px !important;
   background: #79B8FF !important;
   border: none !important;
+  opacity: 0; /* Hide default handles, connections are visual only */
 }
 
 .react-flow__attribution {
