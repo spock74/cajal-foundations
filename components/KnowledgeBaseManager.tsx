@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
-import React, { useState, useRef } from 'react';
-import { Plus, Trash2, ChevronDown, X, Upload, FileText } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Plus, Trash2, ChevronDown, X, Upload, FileText, AlertCircle, CheckCircle } from 'lucide-react';
 import { KnowledgeGroup, KnowledgeSource } from '../types';
 
 interface KnowledgeBaseManagerProps {
@@ -32,6 +32,7 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
 }) => {
   const [currentUrlInput, setCurrentUrlInput] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isReadingFile, setIsReadingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
@@ -44,6 +45,15 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
     'text/plain',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   ];
+  
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => {
+        setSuccessMessage(null);
+      }, 4000); // Clear after 4 seconds
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
 
   const isValidUrl = (urlString: string): boolean => {
     try {
@@ -56,6 +66,7 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
   
   const handleAddUrl = () => {
     setError(null);
+    setSuccessMessage(null);
     if (!currentUrlInput.trim()) {
       setError('URL cannot be empty.');
       return;
@@ -64,16 +75,13 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
       setError('Invalid URL format. Please include http:// or https://');
       return;
     }
-    if (sources.length >= maxSources) {
-      setError(`You can add a maximum of ${maxSources} sources to the current group.`);
-      return;
-    }
     if (sources.find(s => s.id === currentUrlInput)) {
       setError('This URL has already been added to the current group.');
       return;
     }
     onAddSource({ type: 'url', id: currentUrlInput, value: currentUrlInput });
     setCurrentUrlInput('');
+    setSuccessMessage('URL added successfully.');
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -81,18 +89,15 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
     if (!file) return;
 
     setError(null);
-    if (sources.length >= maxSources) {
-      setError(`You can add a maximum of ${maxSources} sources to this group.`);
-      return;
-    }
-
+    setSuccessMessage(null);
+    
     if (!SUPPORTED_FILE_TYPES.includes(file.type)) {
-      setError('Only PDF, DOCX, and TXT files are supported.');
+      setError(`Unsupported file type for "${file.name}". Only PDF, DOCX, and TXT files are supported.`);
       return;
     }
 
     if (file.size > MAX_FILE_SIZE_BYTES) {
-      setError(`File is too large. Maximum size is ${MAX_FILE_SIZE_MB}MB.`);
+      setError(`File "${file.name}" is too large. The maximum file size is ${MAX_FILE_SIZE_MB}MB.`);
       return;
     }
 
@@ -108,10 +113,11 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
         content: base64,
       };
       onAddSource(newSource);
+      setSuccessMessage(`File "${file.name}" added successfully.`);
       setIsReadingFile(false);
     };
     reader.onerror = () => {
-      setError('Failed to read the file.');
+      setError(`Failed to read the file "${file.name}". Please try again or select a different file.`);
       setIsReadingFile(false);
     };
     reader.readAsDataURL(file);
@@ -235,7 +241,7 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
           placeholder="https://docs.example.com"
           className="flex-grow h-8 py-1 px-2.5 border border-[rgba(255,255,255,0.1)] bg-[#2C2C2C] text-[#E2E2E2] placeholder-[#777777] rounded-lg focus:ring-1 focus:ring-white/20 focus:border-white/20 transition-shadow text-sm"
           onKeyPress={(e) => e.key === 'Enter' && handleAddUrl()}
-          disabled={isReadingFile || isCreatingGroup}
+          disabled={sources.length >= maxSources || isReadingFile || isCreatingGroup}
         />
         <button
           onClick={handleAddUrl}
@@ -259,8 +265,28 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
           )}
         </button>
       </div>
-      {error && <p className="text-xs text-[#f87171] mb-2">{error}</p>}
-      {sources.length >= maxSources && <p className="text-xs text-[#fbbf24] mb-2">Maximum {maxSources} sources reached for this group.</p>}
+      
+      {isReadingFile && (
+        <p className="text-xs text-center text-[#A8ABB4] mb-2 animate-pulse">Processing file, please wait...</p>
+      )}
+      {successMessage && (
+        <div className="flex items-start gap-1.5 text-xs text-[#6ee7b7] mb-2 p-2 bg-[#6ee7b7]/10 rounded-md border border-[#6ee7b7]/20">
+          <CheckCircle size={16} className="flex-shrink-0 mt-0.5" />
+          <span>{successMessage}</span>
+        </div>
+      )}
+      {error && (
+        <div className="flex items-start gap-1.5 text-xs text-[#f87171] mb-2 p-2 bg-[#f87171]/10 rounded-md border border-[#f87171]/20">
+          <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
+          <span>{error}</span>
+        </div>
+      )}
+      {sources.length >= maxSources && (
+        <div className="flex items-start gap-1.5 text-xs text-[#fbbf24] mb-2 p-2 bg-[#fbbf24]/10 rounded-md border border-[#fbbf24]/20">
+          <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
+          <span>Maximum {maxSources} sources reached. Please remove a source to add a new one.</span>
+        </div>
+      )}
       
       <div className="flex-grow overflow-y-auto space-y-2 chat-container">
         {sources.length === 0 && (
