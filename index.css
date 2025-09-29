@@ -47,11 +47,6 @@ body {
   border: none !important;
 }
 
-.react-flow .react-flow__edge-path {
-  stroke: #A8ABB4 !important;
-  stroke-width: 1.5 !important;
-}
-
 .react-flow__attribution {
   background-color: rgba(30, 30, 30, 0.8) !important;
 }

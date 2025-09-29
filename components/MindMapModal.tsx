@@ -83,11 +83,17 @@ const MindMapModal: React.FC<MindMapModalProps> = ({
         'LR' // Set direction to Left-to-Right
       );
       setNodes(layoutedNodes);
+      
+      const edgeColor = '#A8ABB4';
       setEdges(
         layoutedEdges.map((edge) => ({
           ...edge,
           type: 'smoothstep', // Use smoothstep edges for curved lines
-          markerEnd: { type: MarkerType.ArrowClosed },
+          markerEnd: { type: MarkerType.ArrowClosed, color: edgeColor },
+          style: {
+            stroke: edgeColor,
+            strokeWidth: 1,
+          },
         }))
       );
     }
