@@ -174,12 +174,12 @@ const MindMapModal: React.FC<MindMapModalProps> = ({
     const edgeColor = '#A8ABB4';
     setEdges(layoutedEdges.map((edge: any) => ({
       ...edge,
-      type: 'smoothstep',
+      type: 'default', // Use default bezier curves for a more organic, smooth look
       animated: false,
       markerEnd: { type: MarkerType.ArrowClosed, color: edgeColor },
       style: {
         stroke: edgeColor,
-        strokeWidth: 1,
+        strokeWidth: 1.5, // Slightly thicker for better visibility
       },
     })));
 
