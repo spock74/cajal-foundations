@@ -33,3 +33,9 @@ export interface KnowledgeGroup {
   name: string;
   sources: KnowledgeSource[];
 }
+
+export interface LibraryItem {
+  id?: number;
+  content: string;
+  timestamp: Date;
+}

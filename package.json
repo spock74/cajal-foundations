@@ -10,13 +10,15 @@
   },
   "dependencies": {
     "@google/genai": "^1.0.1",
-    "react-dom": "^19.1.0",
-    "react": "^19.1.0",
+    "react-dom": "^19.0.0",
+    "react": "^19.0.0",
     "marked": "^13.0.2",
+    "marked-highlight": "^2.1.1",
     "lucide-react": "^0.417.0",
     "highlight.js": "^11.9.0",
     "reactflow": "^11.11.4",
-    "dagre": "^0.8.5"
+    "dagre": "^0.8.5",
+    "dexie": "^4.0.8"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

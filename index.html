@@ -1,25 +1,28 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Documentation Browser</title>
+  <title>Navegador de Documentos</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/index.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" id="hljs-dark-theme">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-light.min.css" id="hljs-light-theme" disabled>
   <link rel="stylesheet" href="https://esm.sh/reactflow@^11.11.4/dist/style.css" />
 <script type="importmap">
 {
   "imports": {
     "@google/genai": "https://esm.sh/@google/genai@^1.0.1",
-    "react-dom/": "https://esm.sh/react-dom@^19.1.0/",
-    "react/": "https://esm.sh/react@^19.1.0/",
-    "react": "https://esm.sh/react@^19.1.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.0.0/",
+    "react/": "https://esm.sh/react@^19.0.0/",
+    "react": "https://esm.sh/react@^19.0.0",
     "marked": "https://esm.sh/marked@^13.0.2",
+    "marked-highlight": "https://esm.sh/marked-highlight@^2.1.1",
     "lucide-react": "https://esm.sh/lucide-react@^0.417.0",
     "highlight.js": "https://esm.sh/highlight.js@^11.9.0",
     "reactflow": "https://esm.sh/reactflow@^11.11.4",
-    "dagre": "https://esm.sh/dagre@^0.8.5"
+    "dagre": "https://esm.sh/dagre@^0.8.5",
+    "dexie": "https://esm.sh/dexie@^4.0.8"
   }
 }
 </script>

@@ -69,7 +69,7 @@ const MindMapNode = React.memo(({ data }: { data: any }) => {
       <Handle type="target" position={Position.Left} isConnectable={false} />
       <span>{data.label}</span>
       {data.hasChildren && (
-        <button onClick={data.onToggle} className="mindmap-node-toggle" aria-label={data.isExpanded ? 'Collapse node' : 'Expand node'}>
+        <button onClick={data.onToggle} className="mindmap-node-toggle" aria-label={data.isExpanded ? 'Recolher nó' : 'Expandir nó'}>
           {data.isExpanded ? '<' : '>'}
         </button>
       )}
@@ -197,7 +197,7 @@ const MindMapModal: React.FC<MindMapModalProps> = ({
           <button
             onClick={onClose}
             className="p-1 text-[#A8ABB4] hover:text-white rounded-md hover:bg-white/10 transition-colors"
-            aria-label="Close Mind Map"
+            aria-label="Fechar Mapa Mental"
           >
             <X size={24} />
           </button>
@@ -206,13 +206,13 @@ const MindMapModal: React.FC<MindMapModalProps> = ({
           {isLoading && (
             <div className="absolute inset-0 flex flex-col justify-center items-center bg-[#1E1E1E]/80 z-10">
               <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin mb-3"></div>
-              <p className="text-white">Analyzing text and building graph...</p>
+              <p className="text-white">Analisando texto e construindo o gráfico...</p>
             </div>
           )}
           {error && !isLoading && (
             <div className="absolute inset-0 flex flex-col justify-center items-center bg-[#1E1E1E]/80 z-10 p-6">
                <AlertCircle size={32} className="text-[#f87171] mb-3" />
-               <p className="text-lg font-semibold text-white mb-1">Failed to create Mind Map</p>
+               <p className="text-lg font-semibold text-white mb-1">Falha ao criar o Mapa Mental</p>
                <p className="text-sm text-center text-[#A8ABB4]">{error}</p>
             </div>
           )}

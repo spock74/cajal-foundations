@@ -1,51 +1,99 @@
 
 
+/* Light theme overrides */
+:root {
+  --scrollbar-track-color: #F9FAFB;
+  --scrollbar-thumb-color: #D1D5DB;
+  --mm-node-bg: #FFFFFF;
+  --mm-node-border: #E5E7EB;
+  --mm-node-text: #1F2937;
+  --mm-controls-bg: #F9FAFB;
+  --mm-controls-border: #E5E7EB;
+  --mm-controls-fill: #374151;
+  --mm-minimap-bg: #F3F4F6;
+  --mm-minimap-border: #E5E7EB;
+  --mm-attribution-bg: rgba(249, 250, 251, 0.8);
+}
+
+.dark {
+  --scrollbar-track-color: #282828;
+  --scrollbar-thumb-color: #4A4A4A;
+  --mm-node-bg: #374151; /* Default depth-0 for dark */
+  --mm-node-border: rgba(255, 255, 255, 0.1);
+  --mm-node-text: #E2E2E2;
+  --mm-controls-bg: #2C2C2C;
+  --mm-controls-border: rgba(255, 255, 255, 0.1);
+  --mm-controls-fill: #E2E2E2;
+  --mm-minimap-bg: #282828;
+  --mm-minimap-border: rgba(255, 255, 255, 0.1);
+  --mm-attribution-bg: rgba(30, 30, 30, 0.8);
+}
+
 body { 
   margin: 0; 
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
-  /* Default dark theme body bg and text set in App.tsx via Tailwind */
   transition: background-color 0.2s ease-out, color 0.2s ease-out;
 }
 
-/* Dark theme scrollbar */
+/* Scrollbar styling */
 .chat-container::-webkit-scrollbar { width: 6px; }
-.chat-container::-webkit-scrollbar-thumb { background-color: #4A4A4A; border-radius: 3px; }
-.chat-container::-webkit-scrollbar-track { background-color: #282828; }
+.chat-container::-webkit-scrollbar-track { background-color: var(--scrollbar-track-color); }
+.chat-container::-webkit-scrollbar-thumb { background-color: var(--scrollbar-thumb-color); border-radius: 3px; }
 
+/* Light theme markdown */
+.prose-gray h1, .prose-gray h2, .prose-gray h3 { color: #111827; }
+.prose-gray p, .prose-gray ul, .prose-gray ol, .prose-gray li, .prose-gray strong, .prose-gray em { color: #374151; }
+.prose-gray blockquote { border-left-color: #D1D5DB; color: #6B7280; }
+.prose-gray a { color: #2563EB; }
 
-/* Basic styling for rendered markdown - Dark Theme */
-.prose h1 { font-size: 1.5em; font-weight: bold; margin-top: 0.8em; margin-bottom: 0.4em; color: #E2E2E2; }
-.prose h2 { font-size: 1.25em; font-weight: bold; margin-top: 0.7em; margin-bottom: 0.35em; color: #E2E2E2; }
-.prose h3 { font-size: 1.1em; font-weight: bold; margin-top: 0.6em; margin-bottom: 0.3em; color: #E2E2E2; }
-.prose p { margin-bottom: 0.4em; line-height: 1.5; color: #E2E2E2; }
-.prose ul, .prose ol { margin-left: 1.25em; margin-bottom: 0.4em; color: #E2E2E2; }
-.prose li { margin-bottom: 0.2em; color: #E2E2E2; }
-.prose strong { font-weight: bold; color: #E2E2E2; }
-.prose em { font-style: italic; color: #E2E2E2; }
-.prose code { /* background-color and color managed by highlight.js theme */ padding: 0.2em 0.4em; border-radius: 3px; font-family: 'Courier New', Courier, monospace; font-size: 0.9em; }
-.prose pre { /* background-color and color managed by highlight.js theme */ padding: 0.8em; border-radius: 4px; overflow-x: auto; margin-bottom: 0.5em; }
+/* Dark theme markdown */
+.dark .prose-invert h1, .dark .prose-invert h2, .dark .prose-invert h3 { color: #E2E2E2; }
+.dark .prose-invert p, .dark .prose-invert ul, .dark .prose-invert ol, .dark .prose-invert li, .dark .prose-invert strong, .dark .prose-invert em { color: #E2E2E2; }
+.dark .prose-invert blockquote { border-left-color: #4A4A4A; color: #A8ABB4; }
+.dark .prose-invert a { color: #79B8FF; }
+
+/* Common markdown styles */
+.prose h1 { font-size: 1.5em; font-weight: bold; margin-top: 0.8em; margin-bottom: 0.4em; }
+.prose h2 { font-size: 1.25em; font-weight: bold; margin-top: 0.7em; margin-bottom: 0.35em; }
+.prose h3 { font-size: 1.1em; font-weight: bold; margin-top: 0.6em; margin-bottom: 0.3em; }
+.prose p { margin-bottom: 0.4em; line-height: 1.5; }
+.prose ul, .prose ol { margin-left: 1.25em; margin-bottom: 0.4em; }
+.prose li { margin-bottom: 0.2em; }
+.prose strong { font-weight: bold; }
+.prose em { font-style: italic; }
+.prose code { padding: 0.2em 0.4em; border-radius: 3px; font-family: 'Courier New', Courier, monospace; font-size: 0.9em; }
+.prose pre { padding: 0.8em; border-radius: 4px; overflow-x: auto; margin-bottom: 0.5em; }
 .prose pre code { background-color: transparent; padding: 0; font-size: 0.9em; color: inherit; }
-.prose blockquote { border-left: 3px solid #4A4A4A; margin-left: 0; padding-left: 1em; color: #A8ABB4; margin-bottom: 0.5em;}
-.prose a { color: #79B8FF; text-decoration: underline; }
+.prose blockquote { border-left: 3px solid; margin-left: 0; padding-left: 1em; margin-bottom: 0.5em;}
+.prose a { text-decoration: underline; }
 
 /* Mind Map Node Styling */
 .react-flow .react-flow__node {
-  /* background-color is now handled by depth classes */
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  color: #E2E2E2 !important;
+  border: 1px solid var(--mm-node-border) !important;
+  color: var(--mm-node-text) !important;
   border-radius: 8px !important;
   font-size: 12px !important;
   padding: 8px 12px !important;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   min-width: 120px;
   text-align: center;
 }
 
-/* Node colors by depth for better visual distinction */
-.react-flow .react-flow__node.depth-0 { background-color: #374151 !important; } /* Gray */
-.react-flow .react-flow__node.depth-1 { background-color: #14532d !important; } /* Green */
-.react-flow .react-flow__node.depth-2 { background-color: #4c1d95 !important; } /* Purple */
-.react-flow .react-flow__node.depth-3 { background-color: #7f1d1d !important; } /* Red */
+.dark .react-flow .react-flow__node {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+}
+
+/* Light Theme Node colors by depth */
+.react-flow .react-flow__node.depth-0 { background-color: #F3F4F6 !important; } /* Gray */
+.react-flow .react-flow__node.depth-1 { background-color: #ECFDF5 !important; } /* Green */
+.react-flow .react-flow__node.depth-2 { background-color: #F5F3FF !important; } /* Purple */
+.react-flow .react-flow__node.depth-3 { background-color: #FEF2F2 !important; } /* Red */
+
+/* Dark Theme Node colors by depth */
+.dark .react-flow .react-flow__node.depth-0 { background-color: #374151 !important; } /* Gray */
+.dark .react-flow .react-flow__node.depth-1 { background-color: #14532d !important; } /* Green */
+.dark .react-flow .react-flow__node.depth-2 { background-color: #4c1d95 !important; } /* Purple */
+.dark .react-flow .react-flow__node.depth-3 { background-color: #7f1d1d !important; } /* Red */
 
 
 /* Custom Node Content & Toggle Button */
@@ -61,52 +109,61 @@ body {
   justify-content: center;
   width: 16px;
   height: 16px;
-  border: 1px solid rgba(255,255,255,0.2);
+  border: 1px solid var(--mm-node-border);
   border-radius: 50%;
   font-size: 10px;
   font-family: monospace;
   line-height: 1;
   cursor: pointer;
-  background-color: rgba(255,255,255,0.05);
-  color: #E2E2E2;
+  background-color: transparent;
+  color: var(--mm-node-text);
   transition: background-color 0.2s, transform 0.2s;
 }
 .mindmap-node-toggle:hover {
-  background-color: rgba(255,255,255,0.15);
+  background-color: rgba(0,0,0,0.05);
   transform: scale(1.1);
+}
+.dark .mindmap-node-toggle:hover {
+  background-color: rgba(255,255,255,0.15);
 }
 
 .react-flow .react-flow__handle {
   width: 6px !important;
   height: 6px !important;
-  background: #79B8FF !important;
+  background: #2563EB !important;
   border: none !important;
-  opacity: 0; /* Hide default handles, connections are visual only */
+  opacity: 0;
+}
+.dark .react-flow .react-flow__handle {
+  background: #79B8FF !important;
 }
 
 .react-flow__attribution {
-  background-color: rgba(30, 30, 30, 0.8) !important;
+  background-color: var(--mm-attribution-bg) !important;
 }
 
 .react-flow__controls-button {
-  background-color: #2C2C2C !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
-  fill: #E2E2E2 !important;
+  background-color: var(--mm-controls-bg) !important;
+  border-bottom: 1px solid var(--mm-controls-border) !important;
+  fill: var(--mm-controls-fill) !important;
 }
 .react-flow__controls-button:hover {
+  background-color: #E5E7EB !important;
+}
+.dark .react-flow__controls-button:hover {
   background-color: #4A4A4A !important;
 }
 
 .react-flow__minimap {
-  background-color: #282828 !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background-color: var(--mm-minimap-bg) !important;
+  border: 1px solid var(--mm-minimap-border) !important;
 }
 
 /* Custom styles for the mind map modal */
 .mind-map-modal-overlay {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.7);
+  background-color: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(4px);
   z-index: 40;
   display: flex;
@@ -114,19 +171,27 @@ body {
   justify-content: center;
   animation: fadeIn 0.3s ease-out;
 }
+.dark .mind-map-modal-overlay {
+  background-color: rgba(0, 0, 0, 0.7);
+}
 
 .mind-map-modal-content {
-  background-color: #1E1E1E;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: #F9FAFB; /* light */
+  border: 1px solid #E5E7EB; /* light */
   border-radius: 16px;
   width: 90vw;
   height: 90vh;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
   display: flex;
   flex-direction: column;
   position: relative;
   overflow: hidden;
   animation: slideUp 0.4s ease-out;
+}
+.dark .mind-map-modal-content {
+  background-color: #1E1E1E;
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
 }
 
 @keyframes fadeIn {

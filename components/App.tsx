@@ -4,45 +4,18 @@
 */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { ChatMessage, MessageSender, KnowledgeGroup, KnowledgeSource } from '../types';
+import { ChatMessage, MessageSender, KnowledgeGroup, KnowledgeSource, LibraryItem } from '../types';
 import { generateContentWithSources, getInitialSuggestions, generateMindMapFromText } from '../services/geminiService';
+import { db } from '../services/dbService';
 import KnowledgeBaseManager from './KnowledgeBaseManager';
 import ChatInterface from './ChatInterface';
 import MindMapModal from './MindMapModal';
+import LibraryPanel from './LibraryPanel';
 
-const GEMINI_DOCS_URLS = [
-  "https://ai.google.dev/gemini-api/docs",
-  "https://ai.google.dev/gemini-api/docs/quickstart",
-  "https://ai.google.dev/gemini-api/docs/api-key",
-  "https://ai.google.dev/gemini-api/docs/libraries",
-  "https://ai.google.dev/gemini-api/docs/models",
-  "https://ai.google.dev/gemini-api/docs/pricing",
-  "https://ai.google.dev/gemini-api/docs/rate-limits",
-  "https://ai.google.dev/gemini-api/docs/billing",
-  "https://ai.google.dev/gemini-api/docs/changelog",
-];
-
-const MODEL_CAPABILITIES_URLS = [
-  "https://ai.google.dev/gemini-api/docs/text-generation",
-  "https://ai.google.dev/gemini-api/docs/image-generation",
-  "https://ai.google.dev/gemini-api/docs/video",
-  "https://ai.google.dev/gemini-api/docs/speech-generation",
-  "https://ai.google.dev/gemini-api/docs/music-generation",
-  "https://ai.google.dev/gemini-api/docs/long-context",
-  "https://ai.google.dev/gemini-api/docs/structured-output",
-  "https://ai.google.dev/gemini-api/docs/thinking",
-  "https://ai.google.dev/gemini-api/docs/function-calling",
-  "https://ai.google.dev/gemini-api/docs/document-processing",
-  "https://ai.google.dev/gemini-api/docs/image-understanding",
-  "https://ai.google.dev/gemini-api/docs/video-understanding",
-  "https://ai.google.dev/gemini-api/docs/audio",
-  "https://ai.google.dev/gemini-api/docs/code-execution",
-  "https://ai.google.dev/gemini-api/docs/grounding",
-];
+const SCIENTIFIC_ARTICLE_URL = "https://pmc.ncbi.nlm.nih.gov/articles/PMC11849834/pdf/pone.0315539.pdf";
 
 const INITIAL_KNOWLEDGE_GROUPS: KnowledgeGroup[] = [
-  { id: 'gemini-overview', name: 'Gemini Docs Overview', sources: GEMINI_DOCS_URLS.map(url => ({ type: 'url', id: url, value: url })) },
-  { id: 'model-capabilities', name: 'Model Capabilities', sources: MODEL_CAPABILITIES_URLS.map(url => ({ type: 'url', id: url, value: url })) },
+  { id: 'artigo-cientifico', name: 'Artigo Científico', sources: [{ type: 'url', id: SCIENTIFIC_ARTICLE_URL, value: SCIENTIFIC_ARTICLE_URL }] },
 ];
 
 const App: React.FC = () => {
@@ -55,6 +28,17 @@ const App: React.FC = () => {
   const [isFetchingSuggestions, setIsFetchingSuggestions] = useState(false);
   const [initialQuerySuggestions, setInitialQuerySuggestions] = useState<string[]>([]);
   
+  const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([]);
+  
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'light' || savedTheme === 'dark') {
+      return savedTheme;
+    }
+    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return systemPrefersDark ? 'dark' : 'light';
+  });
+
   const [mindMapState, setMindMapState] = useState<{
     isOpen: boolean;
     isLoading: boolean;
@@ -76,12 +60,51 @@ const App: React.FC = () => {
   const activeGroup = knowledgeGroups.find(group => group.id === activeGroupId);
   const currentSourcesForChat = activeGroup ? activeGroup.sources : [];
 
+  // Theme management side-effects
+  useEffect(() => {
+    const root = document.documentElement;
+    const lightThemeSheet = document.getElementById('hljs-light-theme') as HTMLLinkElement;
+    const darkThemeSheet = document.getElementById('hljs-dark-theme') as HTMLLinkElement;
+    
+    if (theme === 'light') {
+      root.classList.remove('dark');
+      if (lightThemeSheet) lightThemeSheet.disabled = false;
+      if (darkThemeSheet) darkThemeSheet.disabled = true;
+    } else {
+      root.classList.add('dark');
+      if (lightThemeSheet) lightThemeSheet.disabled = true;
+      if (darkThemeSheet) darkThemeSheet.disabled = false;
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  // Library items management (Dexie)
+  useEffect(() => {
+    const fetchLibraryItems = async () => {
+      const items = await db.getAllSavedItems();
+      setLibraryItems(items);
+    };
+    fetchLibraryItems();
+  }, []);
+
+  const handleSaveToLibrary = async (content: string) => {
+    const newItem: LibraryItem = { content, timestamp: new Date() };
+    const id = await db.addSavedItem(newItem);
+    setLibraryItems(prevItems => [...prevItems, { ...newItem, id }].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()));
+  };
+
+  const handleDeleteLibraryItem = async (id: number) => {
+    await db.deleteSavedItem(id);
+    setLibraryItems(prevItems => prevItems.filter(item => item.id !== id));
+  };
+
+
    useEffect(() => {
     const apiKey = process.env.API_KEY;
     const currentActiveGroup = knowledgeGroups.find(group => group.id === activeGroupId);
     const welcomeMessageText = !apiKey 
-        ? 'ERROR: Gemini API Key (process.env.API_KEY) is not configured. Please set this environment variable to use the application.'
-        : `Welcome to Documentation Browser! You're currently browsing content from: "${currentActiveGroup?.name || 'None'}". Just ask me questions, or try one of the suggestions below to get started`;
+        ? 'ERRO: A chave da API Gemini (process.env.API_KEY) não está configurada. Por favor, defina esta variável de ambiente para usar a aplicação.'
+        : `Bem-vindo ao Navegador de Documentos! Atualmente, você está explorando o conteúdo de: "${currentActiveGroup?.name || 'Nenhum'}". Faça-me perguntas ou experimente uma das sugestões abaixo para começar.`;
     
     setChatMessages([{
       id: `system-welcome-${activeGroupId}-${Date.now()}`,
@@ -118,17 +141,17 @@ const App: React.FC = () => {
             suggestionsArray = parsed.suggestions.filter((s: unknown) => typeof s === 'string');
           } else {
             console.warn("Parsed suggestions response, but 'suggestions' array not found or invalid:", parsed);
-             setChatMessages(prev => [...prev, { id: `sys-err-suggestion-fmt-${Date.now()}`, text: "Received suggestions in an unexpected format.", sender: MessageSender.SYSTEM, timestamp: new Date() }]);
+             setChatMessages(prev => [...prev, { id: `sys-err-suggestion-fmt-${Date.now()}`, text: "Sugestões recebidas em um formato inesperado.", sender: MessageSender.SYSTEM, timestamp: new Date() }]);
           }
         } catch (parseError) {
           console.error("Failed to parse suggestions JSON:", parseError, "Raw text:", response.text);
-          setChatMessages(prev => [...prev, { id: `sys-err-suggestion-parse-${Date.now()}`, text: "Error parsing suggestions from AI.", sender: MessageSender.SYSTEM, timestamp: new Date() }]);
+          setChatMessages(prev => [...prev, { id: `sys-err-suggestion-parse-${Date.now()}`, text: "Erro ao processar as sugestões da IA.", sender: MessageSender.SYSTEM, timestamp: new Date() }]);
         }
       }
       setInitialQuerySuggestions(suggestionsArray.slice(0, 4)); 
     } catch (e: any) {
-      const errorMessage = e.message || 'Failed to fetch initial suggestions.';
-      setChatMessages(prev => [...prev, { id: `sys-err-suggestion-fetch-${Date.now()}`, text: `Error fetching suggestions: ${errorMessage}`, sender: MessageSender.SYSTEM, timestamp: new Date() }]);
+      const errorMessage = e.message || 'Falha ao buscar sugestões iniciais.';
+      setChatMessages(prev => [...prev, { id: `sys-err-suggestion-fetch-${Date.now()}`, text: `Erro ao buscar sugestões: ${errorMessage}`, sender: MessageSender.SYSTEM, timestamp: new Date() }]);
     } finally {
       setIsFetchingSuggestions(false);
     }
@@ -186,24 +209,26 @@ const App: React.FC = () => {
   };
 
   const handleDeleteGroup = (groupId: string) => {
-    setKnowledgeGroups(prev => prev.filter(group => group.id !== groupId));
-    // If the active group is deleted, switch to the first available group
-    if (activeGroupId === groupId) {
-      // After filtering, the list of groups will have updated.
-      // We need to access the new list of groups to determine the next active group.
-      setKnowledgeGroups(currentGroups => {
-        const remainingGroups = currentGroups.filter(group => group.id !== groupId);
-        if (remainingGroups.length > 0) {
-          setActiveGroupId(remainingGroups[0].id);
+    setKnowledgeGroups(prevGroups => {
+      const newGroups = prevGroups.filter(group => group.id !== groupId);
+  
+      // If the active group was deleted, update the active group ID
+      if (activeGroupId === groupId) {
+        if (newGroups.length > 0) {
+          setActiveGroupId(newGroups[0].id);
         } else {
-          // If no groups are left, we could create a default or handle this case as needed.
-          // For now, let's reset to the initial state if all are deleted.
-          setKnowledgeGroups(INITIAL_KNOWLEDGE_GROUPS);
+          // If no groups are left, we will reset to initial state, so update active ID accordingly
           setActiveGroupId(INITIAL_KNOWLEDGE_GROUPS[0].id);
         }
-        return remainingGroups;
-      });
-    }
+      }
+  
+      // If the resulting list of groups is empty, reset to the initial default groups
+      if (newGroups.length === 0) {
+        return INITIAL_KNOWLEDGE_GROUPS;
+      }
+  
+      return newGroups;
+    });
   };
 
   const handleClearAllSources = () => {
@@ -224,7 +249,7 @@ const App: React.FC = () => {
     if (!apiKey) {
        setChatMessages(prev => [...prev, {
         id: `error-apikey-${Date.now()}`,
-        text: 'ERROR: API Key (process.env.API_KEY) is not configured. Please set it up to send messages.',
+        text: 'ERRO: A chave da API (process.env.API_KEY) não está configurada. Por favor, configure-a para enviar mensagens.',
         sender: MessageSender.SYSTEM,
         timestamp: new Date(),
       }]);
@@ -243,7 +268,7 @@ const App: React.FC = () => {
     
     const modelPlaceholderMessage: ChatMessage = {
       id: `model-response-${Date.now()}`,
-      text: 'Thinking...', 
+      text: 'Pensando...', 
       sender: MessageSender.MODEL,
       timestamp: new Date(),
       isLoading: true,
@@ -256,16 +281,16 @@ const App: React.FC = () => {
       setChatMessages(prevMessages =>
         prevMessages.map(msg =>
           msg.id === modelPlaceholderMessage.id
-            ? { ...modelPlaceholderMessage, text: response.text || "I received an empty response.", isLoading: false, urlContext: response.urlContextMetadata }
+            ? { ...modelPlaceholderMessage, text: response.text || "Recebi uma resposta vazia.", isLoading: false, urlContext: response.urlContextMetadata }
             : msg
         )
       );
     } catch (e: any) {
-      const errorMessage = e.message || 'Failed to get response from AI.';
+      const errorMessage = e.message || 'Falha ao obter resposta da IA.';
       setChatMessages(prevMessages =>
         prevMessages.map(msg =>
           msg.id === modelPlaceholderMessage.id
-            ? { ...modelPlaceholderMessage, text: `Error: ${errorMessage}`, sender: MessageSender.SYSTEM, isLoading: false } 
+            ? { ...modelPlaceholderMessage, text: `Erro: ${errorMessage}`, sender: MessageSender.SYSTEM, isLoading: false } 
             : msg
         )
       );
@@ -283,19 +308,19 @@ const App: React.FC = () => {
       isOpen: true,
       isLoading: true,
       error: null,
-      title: 'Generating Mind Map...',
+      title: 'Gerando Mapa Mental...',
       rawNodes: [],
       rawEdges: [],
     });
     try {
       const { nodes, edges } = await generateMindMapFromText(text);
       if (nodes.length === 0) {
-        throw new Error("The model couldn't find any concepts to create a mind map from this text.");
+        throw new Error("O modelo não conseguiu encontrar conceitos para criar um mapa mental a partir deste texto.");
       }
       setMindMapState(prev => ({
         ...prev,
         isLoading: false,
-        title: 'Mind Map',
+        title: 'Mapa Mental',
         rawNodes: nodes.map(n => ({ ...n, data: { label: n.label } })), // Adapt to React Flow format
         rawEdges: edges,
       }));
@@ -303,7 +328,7 @@ const App: React.FC = () => {
       setMindMapState(prev => ({
         ...prev,
         isLoading: false,
-        error: e.message || 'An unknown error occurred while generating the mind map.'
+        error: e.message || 'Ocorreu um erro desconhecido ao gerar o mapa mental.'
       }));
     }
   };
@@ -313,12 +338,12 @@ const App: React.FC = () => {
   };
 
   const chatPlaceholder = currentSourcesForChat.length > 0 
-    ? `Ask questions about "${activeGroup?.name || 'current documents'}"...`
-    : "Select a group and/or add URLs/files to the knowledge base to enable chat.";
+    ? `Faça perguntas sobre "${activeGroup?.name || 'documentos atuais'}"...`
+    : "Selecione um grupo e/ou adicione URLs/arquivos à base de conhecimento para habilitar o chat.";
 
   return (
     <div 
-      className="h-screen max-h-screen antialiased relative overflow-x-hidden bg-[#121212] text-[#E2E2E2]"
+      className="h-screen max-h-screen antialiased relative overflow-x-hidden bg-gray-100 text-gray-800 dark:bg-[#121212] dark:text-[#E2E2E2] transition-colors duration-200"
     >
       {/* Overlay for mobile */}
       {isSidebarOpen && (
@@ -330,10 +355,10 @@ const App: React.FC = () => {
       )}
       
       <div className="flex h-full w-full md:p-4 md:gap-4">
-        {/* Sidebar */}
+        {/* Left Panel: Knowledge Base */}
         <div className={`
           fixed top-0 left-0 h-full w-11/12 max-w-sm z-30 transform transition-transform ease-in-out duration-300 p-3
-          md:static md:p-0 md:w-1/3 lg:w-1/4 md:h-full md:max-w-none md:translate-x-0 md:z-auto
+          md:static md:p-0 md:w-1/4 xl:w-1/5 md:h-full md:max-w-xs md:translate-x-0 md:z-auto
           ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         `}>
           <KnowledgeBaseManager
@@ -352,8 +377,8 @@ const App: React.FC = () => {
           />
         </div>
 
-        {/* Chat Interface */}
-        <div className="w-full h-full p-3 md:p-0 md:w-2/3 lg:w-3/4">
+        {/* Center Panel: Chat Interface */}
+        <div className="w-full h-full p-3 md:p-0 md:flex-1">
           <ChatInterface
             messages={chatMessages}
             onSendMessage={handleSendMessage}
@@ -364,7 +389,15 @@ const App: React.FC = () => {
             isFetchingSuggestions={isFetchingSuggestions}
             onToggleSidebar={() => setIsSidebarOpen(true)}
             onGenerateMindMap={handleGenerateMindMap}
+            onSaveToLibrary={handleSaveToLibrary}
+            theme={theme}
+            setTheme={setTheme}
           />
+        </div>
+
+        {/* Right Panel: Library */}
+        <div className="hidden lg:block lg:w-1/4 xl:w-1/5 h-full">
+           <LibraryPanel items={libraryItems} onDeleteItem={handleDeleteLibraryItem} />
         </div>
       </div>
       

@@ -18,7 +18,7 @@ const MODEL_NAME = "gemini-2.5-flash";
 const getAiInstance = (): GoogleGenAI => {
   if (!API_KEY) {
     console.error("API_KEY is not set in environment variables. Please set process.env.API_KEY.");
-    throw new Error("Gemini API Key not configured. Set process.env.API_KEY.");
+    throw new Error("Chave da API Gemini não configurada. Defina process.env.API_KEY.");
   }
   if (!ai) {
     ai = new GoogleGenAI({ apiKey: API_KEY });
@@ -50,7 +50,7 @@ export const generateContentWithSources = async (
   let textPrompt = prompt;
   if (urls.length > 0) {
     const urlList = urls.join('\n');
-    textPrompt = `${prompt}\n\nRelevant URLs for context:\n${urlList}`;
+    textPrompt = `${prompt}\n\nURLs relevantes para contexto:\n${urlList}`;
   }
 
   const userParts: Part[] = [{ text: textPrompt }];
@@ -80,10 +80,14 @@ export const generateContentWithSources = async (
     const candidate = response.candidates?.[0];
     let extractedUrlContextMetadata: UrlContextMetadataItem[] | undefined = undefined;
 
-    if (candidate && candidate.urlContextMetadata && candidate.urlContextMetadata.urlMetadata) {
+    if (candidate?.urlContextMetadata?.urlMetadata && Array.isArray(candidate.urlContextMetadata.urlMetadata)) {
       console.log("Raw candidate.urlContextMetadata.urlMetadata from API/SDK:", JSON.stringify(candidate.urlContextMetadata.urlMetadata, null, 2));
-      extractedUrlContextMetadata = candidate.urlContextMetadata.urlMetadata as UrlContextMetadataItem[];
-    } else if (candidate && candidate.urlContextMetadata) {
+      // Manually map properties to ensure camelCase, as the API response might use snake_case.
+      extractedUrlContextMetadata = candidate.urlContextMetadata.urlMetadata.map((meta: any) => ({
+        retrievedUrl: meta.retrievedUrl || meta.retrieved_url,
+        urlRetrievalStatus: meta.urlRetrievalStatus || meta.url_retrieval_status,
+      }));
+    } else if (candidate?.urlContextMetadata) {
       console.warn("candidate.urlContextMetadata is present, but 'urlMetadata' field is missing or empty:", JSON.stringify(candidate.urlContextMetadata, null, 2));
     }
     
@@ -94,30 +98,30 @@ export const generateContentWithSources = async (
     if (error instanceof Error) {
       const googleError = error as any; 
       if (googleError.message && googleError.message.includes("API key not valid")) {
-         throw new Error("Invalid API Key. Please check your GEMINI_API_KEY environment variable.");
+         throw new Error("Chave de API inválida. Verifique sua variável de ambiente API_KEY.");
       }
       if (googleError.message && googleError.message.includes("quota")) {
-        throw new Error("API quota exceeded. Please check your Gemini API quota.");
+        throw new Error("Cota da API excedida. Verifique sua cota da API Gemini.");
       }
       if (googleError.type === 'GoogleGenAIError' && googleError.message) {
-        throw new Error(`Gemini API Error: ${googleError.message}`);
+        throw new Error(`Erro da API Gemini: ${googleError.message}`);
       }
-      throw new Error(`Failed to get response from AI: ${error.message}`);
+      throw new Error(`Falha ao obter resposta da IA: ${error.message}`);
     }
-    throw new Error("Failed to get response from AI due to an unknown error.");
+    throw new Error("Falha ao obter resposta da IA devido a um erro desconhecido.");
   }
 };
 
 export const getInitialSuggestions = async (urls: string[]): Promise<GeminiResponse> => {
   if (urls.length === 0) {
-    return { text: JSON.stringify({ suggestions: ["Add some URLs to get topic suggestions."] }) };
+    return { text: JSON.stringify({ suggestions: ["Adicione algumas URLs para obter sugestões de tópicos."] }) };
   }
   const currentAi = getAiInstance();
   const urlList = urls.join('\n');
   
-  const promptText = `Based on the content of the following documentation URLs, provide 3-4 concise and actionable questions a developer might ask to explore these documents. These questions should be suitable as quick-start prompts. Return ONLY a JSON object with a key "suggestions" containing an array of these question strings. For example: {"suggestions": ["What are the rate limits?", "How do I get an API key?", "Explain model X."]}
+  const promptText = `Com base no conteúdo das seguintes URLs de documentação, forneça 3-4 perguntas concisas e práticas que um desenvolvedor poderia fazer para explorar estes documentos. Estas perguntas devem ser adequadas como sugestões de início rápido. Retorne APENAS um objeto JSON com uma chave "suggestions" contendo um array destas strings de perguntas. Por exemplo: {"suggestions": ["Quais são os limites de taxa?", "Como obtenho uma chave de API?", "Explique o modelo X."]}
 
-Relevant URLs:
+URLs Relevantes:
 ${urlList}`;
 
   const contents: Content[] = [{ role: "user", parts: [{ text: promptText }] }];
@@ -141,26 +145,26 @@ ${urlList}`;
      if (error instanceof Error) {
       const googleError = error as any; 
       if (googleError.message && googleError.message.includes("API key not valid")) {
-         throw new Error("Invalid API Key for suggestions. Please check your GEMINI_API_KEY environment variable.");
+         throw new Error("Chave de API inválida para sugestões. Verifique sua variável de ambiente API_KEY.");
       }
       if (googleError.message && googleError.message.includes("Tool use with a response mime type: 'application/json' is unsupported")) {
-        throw new Error("Configuration error: Cannot use tools with JSON response type for suggestions. This should be fixed in the code.");
+        throw new Error("Erro de configuração: Não é possível usar ferramentas com o tipo de resposta JSON para sugestões. Isso deve ser corrigido no código.");
       }
-      throw new Error(`Failed to get initial suggestions from AI: ${error.message}`);
+      throw new Error(`Falha ao obter sugestões iniciais da IA: ${error.message}`);
     }
-    throw new Error("Failed to get initial suggestions from AI due to an unknown error.");
+    throw new Error("Falha ao obter sugestões iniciais da IA devido a um erro desconhecido.");
   }
 };
 
 
 export const generateMindMapFromText = async (textToAnalyze: string): Promise<{ nodes: any[], edges: any[] }> => {
   const currentAi = getAiInstance();
-  const prompt = `Analyze the following text and extract the key concepts and their relationships as a mind map. Return ONLY a JSON object with two keys: "nodes" and "edges".
-- The "nodes" array should contain objects with "id" (a unique, simple, lowercase string) and "label" (a concise, human-readable title for the concept).
-- The "edges" array should contain objects with "id" (e.g., "e1-2"), "source" (the ID of the source node), and "target" (the ID of the target node).
-- Ensure all "source" and "target" IDs in the edges array correspond to an ID in the nodes list. The graph should be a tree or a directed acyclic graph (DAG).
+  const prompt = `Analise o texto a seguir e extraia os conceitos-chave e suas relações como um mapa mental. Retorne APENAS um objeto JSON com duas chaves: "nodes" e "edges".
+- O array "nodes" deve conter objetos com "id" (uma string única, simples e em minúsculas) e "label" (um título conciso e legível para o conceito).
+- O array "edges" deve conter objetos com "id" (ex: "e1-2"), "source" (o ID do nó de origem) e "target" (o ID do nó de destino).
+- Garanta que todos os IDs de "source" e "target" no array de arestas correspondam a um ID na lista de nós. O grafo deve ser uma árvore ou um grafo acíclico direcionado (DAG).
 
-Text to analyze:
+Texto para analisar:
 \`\`\`
 ${textToAnalyze}
 \`\`\``;
@@ -215,8 +219,8 @@ ${textToAnalyze}
   } catch (error) {
     console.error("Error calling Gemini API for mind map generation:", error);
     if (error instanceof Error) {
-       throw new Error(`Failed to generate mind map from AI: ${error.message}`);
+       throw new Error(`Falha ao gerar mapa mental da IA: ${error.message}`);
     }
-    throw new Error("Failed to generate mind map from AI due to an unknown error.");
+    throw new Error("Falha ao gerar mapa mental da IA devido a um erro desconhecido.");
   }
 };
