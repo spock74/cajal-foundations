@@ -41,11 +41,12 @@ body {
   text-align: center;
 }
 
-/* Node colors by depth */
-.react-flow .react-flow__node.depth-0 { background-color: #4a5568 !important; }
-.react-flow .react-flow__node.depth-1 { background-color: #3b4759 !important; }
-.react-flow .react-flow__node.depth-2 { background-color: #2d3748 !important; }
-.react-flow .react-flow__node.depth-3 { background-color: #242c3a !important; }
+/* Node colors by depth for better visual distinction */
+.react-flow .react-flow__node.depth-0 { background-color: #374151 !important; } /* Gray */
+.react-flow .react-flow__node.depth-1 { background-color: #14532d !important; } /* Green */
+.react-flow .react-flow__node.depth-2 { background-color: #4c1d95 !important; } /* Purple */
+.react-flow .react-flow__node.depth-3 { background-color: #7f1d1d !important; } /* Red */
+
 
 /* Custom Node Content & Toggle Button */
 .mindmap-node-content {
