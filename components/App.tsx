@@ -179,6 +179,33 @@ const App: React.FC = () => {
     setActiveGroupId(newGroupId);
   };
 
+  const handleRenameGroup = (groupId: string, newName: string) => {
+    setKnowledgeGroups(prev => 
+      prev.map(group => group.id === groupId ? { ...group, name: newName } : group)
+    );
+  };
+
+  const handleDeleteGroup = (groupId: string) => {
+    setKnowledgeGroups(prev => prev.filter(group => group.id !== groupId));
+    // If the active group is deleted, switch to the first available group
+    if (activeGroupId === groupId) {
+      // After filtering, the list of groups will have updated.
+      // We need to access the new list of groups to determine the next active group.
+      setKnowledgeGroups(currentGroups => {
+        const remainingGroups = currentGroups.filter(group => group.id !== groupId);
+        if (remainingGroups.length > 0) {
+          setActiveGroupId(remainingGroups[0].id);
+        } else {
+          // If no groups are left, we could create a default or handle this case as needed.
+          // For now, let's reset to the initial state if all are deleted.
+          setKnowledgeGroups(INITIAL_KNOWLEDGE_GROUPS);
+          setActiveGroupId(INITIAL_KNOWLEDGE_GROUPS[0].id);
+        }
+        return remainingGroups;
+      });
+    }
+  };
+
   const handleClearAllSources = () => {
     setKnowledgeGroups(prevGroups =>
       prevGroups.map(group => {
@@ -318,6 +345,8 @@ const App: React.FC = () => {
             activeGroupId={activeGroupId}
             onSetGroupId={setActiveGroupId}
             onAddGroup={handleAddGroup}
+            onRenameGroup={handleRenameGroup}
+            onDeleteGroup={handleDeleteGroup}
             onCloseSidebar={() => setIsSidebarOpen(false)}
             onClearAllSources={handleClearAllSources}
           />

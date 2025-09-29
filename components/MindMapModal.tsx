@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect } from 'react';
 import ReactFlow, {
   Controls,
   MiniMap,
@@ -33,7 +33,11 @@ const nodeHeight = 36;
 
 const getLayoutedElements = (nodes: any[], edges: any[], direction = 'TB') => {
   const isHorizontal = direction === 'LR';
-  dagreGraph.setGraph({ rankdir: direction });
+  dagreGraph.setGraph({
+    rankdir: direction,
+    ranksep: isHorizontal ? 120 : 60,
+    nodesep: 40,
+  });
 
   nodes.forEach((node) => {
     dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
@@ -75,10 +79,17 @@ const MindMapModal: React.FC<MindMapModalProps> = ({
     if (rawNodes.length > 0) {
       const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
         rawNodes,
-        rawEdges
+        rawEdges,
+        'LR' // Set direction to Left-to-Right
       );
       setNodes(layoutedNodes);
-      setEdges(layoutedEdges.map(edge => ({ ...edge, markerEnd: { type: MarkerType.ArrowClosed } })));
+      setEdges(
+        layoutedEdges.map((edge) => ({
+          ...edge,
+          type: 'smoothstep', // Use smoothstep edges for curved lines
+          markerEnd: { type: MarkerType.ArrowClosed },
+        }))
+      );
     }
   }, [rawNodes, rawEdges, setNodes, setEdges]);
   

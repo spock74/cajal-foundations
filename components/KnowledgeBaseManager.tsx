@@ -4,7 +4,7 @@
 */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Trash2, ChevronDown, X, Upload, FileText, AlertCircle, CheckCircle } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, X, Upload, FileText, AlertCircle, CheckCircle, Pencil } from 'lucide-react';
 import { KnowledgeGroup, KnowledgeSource } from '../types';
 
 interface KnowledgeBaseManagerProps {
@@ -16,6 +16,8 @@ interface KnowledgeBaseManagerProps {
   activeGroupId: string;
   onSetGroupId: (id: string) => void;
   onAddGroup: (groupName: string) => void;
+  onRenameGroup: (groupId: string, newName: string) => void;
+  onDeleteGroup: (groupId: string) => void;
   onCloseSidebar?: () => void;
   onClearAllSources: () => void;
 }
@@ -29,6 +31,8 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
   activeGroupId,
   onSetGroupId,
   onAddGroup,
+  onRenameGroup,
+  onDeleteGroup,
   onCloseSidebar,
   onClearAllSources,
 }) => {
@@ -40,6 +44,11 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [isConfirmingClear, setIsConfirmingClear] = useState(false);
+  const [isManagingGroups, setIsManagingGroups] = useState(false);
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [editingGroupName, setEditingGroupName] = useState('');
+  const [deletingGroupId, setDeletingGroupId] = useState<string | null>(null);
+  const [manageError, setManageError] = useState<string | null>(null);
 
   const MAX_FILE_SIZE_MB = 10;
   const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
@@ -53,7 +62,7 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
     if (successMessage) {
       const timer = setTimeout(() => {
         setSuccessMessage(null);
-      }, 4000); // Clear after 4 seconds
+      }, 4000);
       return () => clearTimeout(timer);
     }
   }, [successMessage]);
@@ -164,37 +173,117 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
     onClearAllSources();
     setIsConfirmingClear(false);
   };
+  
+  const handleSaveRename = (groupId: string) => {
+    const trimmedName = editingGroupName.trim();
+    if (!trimmedName) {
+      setManageError("Group name cannot be empty.");
+      return;
+    }
+    if (knowledgeGroups.some(g => g.id !== groupId && g.name.toLowerCase() === trimmedName.toLowerCase())) {
+      setManageError("A group with this name already exists.");
+      return;
+    }
+    onRenameGroup(groupId, trimmedName);
+    setEditingGroupId(null);
+    setEditingGroupName('');
+    setManageError(null);
+  };
+  
+  const handleConfirmDelete = (groupId: string) => {
+    onDeleteGroup(groupId);
+    setDeletingGroupId(null);
+  };
 
+  const isDefaultGroup = (groupId: string) => ['gemini-overview', 'model-capabilities'].includes(groupId);
   const activeGroupName = knowledgeGroups.find(g => g.id === activeGroupId)?.name || "Unknown Group";
 
-  return (
-    <div className="p-4 bg-[#1E1E1E] shadow-md rounded-xl h-full flex flex-col border border-[rgba(255,255,255,0.05)]">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-xl font-semibold text-[#E2E2E2]">Knowledge Base</h2>
-        {onCloseSidebar && (
-          <button
-            onClick={onCloseSidebar}
-            className="p-1 text-[#A8ABB4] hover:text-white rounded-md hover:bg-white/10 transition-colors md:hidden"
-            aria-label="Close knowledge base"
-          >
-            <X size={24} />
-          </button>
-        )}
+  const renderManageGroupsView = () => (
+    <>
+      <div className="flex justify-between items-center mb-3">
+        <h3 className="text-lg font-semibold text-white">Manage Groups</h3>
+        <button
+          onClick={() => { setIsManagingGroups(false); setManageError(null); }}
+          className="text-sm text-[#79B8FF] hover:text-white font-medium"
+        >
+          Done
+        </button>
       </div>
-      
+      {manageError && (
+        <div className="flex items-start gap-1.5 text-xs text-[#f87171] mb-2 p-2 bg-[#f87171]/10 rounded-md border border-[#f87171]/20">
+          <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
+          <span>{manageError}</span>
+        </div>
+      )}
+      <div className="flex-grow overflow-y-auto space-y-2 chat-container">
+        {knowledgeGroups.map(group => (
+          <div key={group.id} className="p-2.5 bg-[#2C2C2C] border border-[rgba(255,255,255,0.05)] rounded-lg">
+            {deletingGroupId === group.id ? (
+              <div className="text-center">
+                <p className="text-sm text-white mb-2">Delete "{group.name}"?</p>
+                <div className="flex justify-center gap-2">
+                   <button onClick={() => setDeletingGroupId(null)} className="px-3 py-1 text-xs text-[#A8ABB4] hover:bg-white/5 rounded-md">Cancel</button>
+                   <button onClick={() => handleConfirmDelete(group.id)} className="px-3 py-1 text-xs bg-[#f87171]/20 text-[#f87171] hover:bg-[#f87171]/30 rounded-md">Confirm Delete</button>
+                </div>
+              </div>
+            ) : editingGroupId === group.id ? (
+               <div className="space-y-2">
+                 <input
+                   type="text"
+                   value={editingGroupName}
+                   onChange={e => setEditingGroupName(e.target.value)}
+                   className="w-full h-8 py-1 px-2.5 border border-[rgba(255,255,255,0.1)] bg-[#1E1E1E] text-[#E2E2E2] rounded-lg focus:ring-1 focus:ring-white/20 text-sm"
+                   onKeyPress={e => e.key === 'Enter' && handleSaveRename(group.id)}
+                   autoFocus
+                 />
+                 <div className="flex justify-end gap-2">
+                   <button onClick={() => setEditingGroupId(null)} className="px-2.5 py-1 text-xs text-[#A8ABB4] hover:bg-white/5 rounded-md">Cancel</button>
+                   <button onClick={() => handleSaveRename(group.id)} className="px-2.5 py-1 text-xs bg-white/[.12] text-white hover:bg-white/20 rounded-md">Save</button>
+                 </div>
+               </div>
+             ) : (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-white truncate" title={group.name}>{group.name}</span>
+                {isDefaultGroup(group.id) ? (
+                  <span className="text-xs text-[#777777] px-2 py-0.5 bg-white/5 rounded-full">Default</span>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => { setEditingGroupId(group.id); setEditingGroupName(group.name); setManageError(null); }}
+                      className="p-1 text-[#A8ABB4] hover:text-white rounded-md hover:bg-white/10"
+                      aria-label={`Rename ${group.name}`}
+                    >
+                      <Pencil size={16} />
+                    </button>
+                    <button
+                      onClick={() => { setDeletingGroupId(group.id); setManageError(null); }}
+                      className="p-1 text-[#A8ABB4] hover:text-[#f87171] rounded-md hover:bg-[rgba(255,0,0,0.1)]"
+                      aria-label={`Delete ${group.name}`}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </>
+  );
+
+  const renderDefaultView = () => (
+    <>
       <div className="mb-3">
         <div className="flex justify-between items-center mb-1">
           <label htmlFor="url-group-select-kb" className="block text-sm font-medium text-[#A8ABB4]">
             Active Group
           </label>
-          {!isCreatingGroup && (
-            <button
-              onClick={() => setIsCreatingGroup(true)}
-              className="text-xs text-[#79B8FF] hover:text-white font-medium"
-            >
-              New Group
-            </button>
-          )}
+           <div className="flex items-center gap-2">
+            {!isCreatingGroup && <button onClick={() => setIsManagingGroups(true)} className="text-xs text-[#79B8FF] hover:text-white font-medium">Manage</button>}
+            <div className="w-px h-3 bg-white/20"></div>
+            {!isCreatingGroup && <button onClick={() => setIsCreatingGroup(true)} className="text-xs text-[#79B8FF] hover:text-white font-medium">New Group</button>}
+          </div>
         </div>
         {isCreatingGroup ? (
           <div className="space-y-2">
@@ -360,6 +449,25 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
           )}
         </div>
       )}
+    </>
+  );
+
+  return (
+    <div className="p-4 bg-[#1E1E1E] shadow-md rounded-xl h-full flex flex-col border border-[rgba(255,255,255,0.05)]">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-xl font-semibold text-[#E2E2E2]">Knowledge Base</h2>
+        {onCloseSidebar && (
+          <button
+            onClick={onCloseSidebar}
+            className="p-1 text-[#A8ABB4] hover:text-white rounded-md hover:bg-white/10 transition-colors md:hidden"
+            aria-label="Close knowledge base"
+          >
+            <X size={24} />
+          </button>
+        )}
+      </div>
+      
+      {isManagingGroups ? renderManageGroupsView() : renderDefaultView()}
     </div>
   );
 };
