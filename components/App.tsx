@@ -4,6 +4,7 @@
 */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { ThemeProvider } from 'next-themes';
 import { ChatMessage, MessageSender, KnowledgeGroup, KnowledgeSource, LibraryItem } from '../types';
 import { generateContentWithSources, getInitialSuggestions, generateMindMapFromText } from '../services/geminiService';
 import { db } from '../services/dbService';
@@ -18,7 +19,7 @@ const INITIAL_KNOWLEDGE_GROUPS: KnowledgeGroup[] = [
   { id: 'artigo-cientifico', name: 'Artigo Científico', sources: [{ type: 'url', id: SCIENTIFIC_ARTICLE_URL, value: SCIENTIFIC_ARTICLE_URL }] },
 ];
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
   const [knowledgeGroups, setKnowledgeGroups] = useState<KnowledgeGroup[]>(INITIAL_KNOWLEDGE_GROUPS);
   const [activeGroupId, setActiveGroupId] = useState<string>(INITIAL_KNOWLEDGE_GROUPS[0].id);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -29,15 +30,6 @@ const App: React.FC = () => {
   const [initialQuerySuggestions, setInitialQuerySuggestions] = useState<string[]>([]);
   
   const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([]);
-  
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'light' || savedTheme === 'dark') {
-      return savedTheme;
-    }
-    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    return systemPrefersDark ? 'dark' : 'light';
-  });
 
   const [mindMapState, setMindMapState] = useState<{
     isOpen: boolean;
@@ -59,24 +51,6 @@ const App: React.FC = () => {
 
   const activeGroup = knowledgeGroups.find(group => group.id === activeGroupId);
   const currentSourcesForChat = activeGroup ? activeGroup.sources : [];
-
-  // Theme management side-effects
-  useEffect(() => {
-    const root = document.documentElement;
-    const lightThemeSheet = document.getElementById('hljs-light-theme') as HTMLLinkElement;
-    const darkThemeSheet = document.getElementById('hljs-dark-theme') as HTMLLinkElement;
-    
-    if (theme === 'light') {
-      root.classList.remove('dark');
-      if (lightThemeSheet) lightThemeSheet.disabled = false;
-      if (darkThemeSheet) darkThemeSheet.disabled = true;
-    } else {
-      root.classList.add('dark');
-      if (lightThemeSheet) lightThemeSheet.disabled = true;
-      if (darkThemeSheet) darkThemeSheet.disabled = false;
-    }
-    localStorage.setItem('theme', theme);
-  }, [theme]);
 
   // Library items management (Dexie)
   useEffect(() => {
@@ -104,7 +78,7 @@ const App: React.FC = () => {
     const currentActiveGroup = knowledgeGroups.find(group => group.id === activeGroupId);
     const welcomeMessageText = !apiKey 
         ? 'ERRO: A chave da API Gemini (process.env.API_KEY) não está configurada. Por favor, defina esta variável de ambiente para usar a aplicação.'
-        : `Bem-vindo ao Navegador de Documentos! Atualmente, você está explorando o conteúdo de: "${currentActiveGroup?.name || 'Nenhum'}". Faça-me perguntas ou experimente uma das sugestões abaixo para começar.`;
+        : `Bem-vindo ao {Piaget}! Atualmente, você está explorando o conteúdo de: "${currentActiveGroup?.name || 'Nenhum'}". Faça-me perguntas ou experimente uma das sugestões abaixo para começar.`;
     
     setChatMessages([{
       id: `system-welcome-${activeGroupId}-${Date.now()}`,
@@ -268,7 +242,7 @@ const App: React.FC = () => {
     
     const modelPlaceholderMessage: ChatMessage = {
       id: `model-response-${Date.now()}`,
-      text: 'Pensando...', 
+      text: 'Pensando...',
       sender: MessageSender.MODEL,
       timestamp: new Date(),
       isLoading: true,
@@ -343,7 +317,7 @@ const App: React.FC = () => {
 
   return (
     <div 
-      className="h-screen max-h-screen antialiased relative overflow-x-hidden bg-gray-100 text-gray-800 dark:bg-[#121212] dark:text-[#E2E2E2] transition-colors duration-200"
+      className="h-screen max-h-screen antialiased relative overflow-x-hidden bg-background text-foreground transition-colors duration-200"
     >
       {/* Overlay for mobile */}
       {isSidebarOpen && (
@@ -390,8 +364,6 @@ const App: React.FC = () => {
             onToggleSidebar={() => setIsSidebarOpen(true)}
             onGenerateMindMap={handleGenerateMindMap}
             onSaveToLibrary={handleSaveToLibrary}
-            theme={theme}
-            setTheme={setTheme}
           />
         </div>
 
@@ -413,5 +385,11 @@ const App: React.FC = () => {
     </div>
   );
 };
+
+const App: React.FC = () => (
+  <ThemeProvider attribute="class" defaultTheme="system" enableSystem themes={['light', 'dark', 'dracula']}>
+    <AppContent />
+  </ThemeProvider>
+);
 
 export default App;

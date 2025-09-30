@@ -16,10 +16,10 @@ interface LibraryPanelProps {
 const ActionButton: React.FC<{ icon: React.ReactNode; label: string; title: string }> = ({ icon, label, title }) => (
   <button 
     title={title}
-    className="flex flex-col items-center justify-center gap-1 p-2 text-xs text-center text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-lg transition-colors"
+    className="flex flex-col items-center justify-center gap-1 p-2 text-xs text-center text-blue-600 dark:text-blue-400 bg-blue-100/50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-lg transition-colors"
   >
     {icon}
-    <span className="truncate">{label}</span>
+    <span className="truncate font-medium">{label}</span>
   </button>
 );
 
@@ -31,8 +31,8 @@ const LibraryPanel: React.FC<LibraryPanelProps> = ({ items, onDeleteItem }) => {
   );
 
   return (
-    <div className="p-4 bg-white dark:bg-[#1E1E1E] shadow-lg rounded-xl h-full flex flex-col border border-gray-200 dark:border-[rgba(255,255,255,0.05)] transition-colors duration-200">
-      <h2 className="text-xl font-semibold text-gray-800 dark:text-[#E2E2E2] mb-3">Biblioteca</h2>
+    <div className="p-4 bg-[var(--bg-color-2)] shadow-lg rounded-xl h-full flex flex-col border border-[var(--border-color)] transition-colors duration-200">
+      <h2 className="text-xl font-semibold text-[var(--text-color)] mb-3">Biblioteca</h2>
       
       {/* Search Input */}
       <div className="relative mb-3">
@@ -42,7 +42,7 @@ const LibraryPanel: React.FC<LibraryPanelProps> = ({ items, onDeleteItem }) => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Pesquisar na biblioteca..."
-            className="w-full h-8 pl-8 pr-2.5 border border-gray-300 dark:border-[rgba(255,255,255,0.1)] bg-gray-100 dark:bg-[#2C2C2C] text-gray-800 dark:text-[#E2E2E2] placeholder-gray-400 dark:placeholder-[#777777] rounded-lg focus:ring-1 focus:ring-blue-500 dark:focus:ring-white/20 transition-shadow text-sm"
+            className="w-full h-8 pl-8 pr-2.5 border border-gray-300 dark:border-[rgba(255,255,255,0.1)] bg-gray-100 dark:bg-[#2C2C2C] text-[var(--text-color)] placeholder-gray-400 dark:placeholder-[#777777] rounded-lg focus:ring-1 focus:ring-blue-500 dark:focus:ring-white/20 transition-shadow text-sm"
         />
       </div>
 

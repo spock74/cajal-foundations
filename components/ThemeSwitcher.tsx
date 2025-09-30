@@ -3,27 +3,54 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
-import React from 'react';
-import { Sun, Moon } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useTheme } from 'next-themes';
+import { Sun, Moon, Monitor, Palette } from 'lucide-react';
 
-interface ThemeSwitcherProps {
-  theme: 'light' | 'dark';
-  setTheme: (theme: 'light' | 'dark') => void;
-}
+const themes = [
+  { name: 'light', icon: <Sun size={16} /> },
+  { name: 'dark', icon: <Moon size={16} /> },
+  { name: 'dracula', icon: <Palette size={16} /> },
+  { name: 'system', icon: <Monitor size={16} /> },
+];
 
-const ThemeSwitcher: React.FC<ThemeSwitcherProps> = ({ theme, setTheme }) => {
-  const toggleTheme = () => {
-    setTheme(theme === 'light' ? 'dark' : 'light');
-  };
+const ThemeSwitcher: React.FC = () => {
+  const [mounted, setMounted] = useState(false);
+  const { theme, setTheme } = useTheme();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return null; 
+  }
 
   return (
-    <button
-      onClick={toggleTheme}
-      className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
-      aria-label={`Mudar para o modo ${theme === 'light' ? 'escuro' : 'claro'}`}
-    >
-      {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-    </button>
+    <div className="flex items-center p-1 bg-background-input rounded-full">
+      {themes.map((t) => {
+        const isActive = theme === t.name;
+        return (
+          <button
+            key={t.name}
+            onClick={() => setTheme(t.name)}
+            className={`
+              flex items-center justify-center w-8 h-8 rounded-full transition-colors duration-200 capitalize 
+              ${isActive 
+                ? 'bg-background shadow-sm' 
+                : 'hover:bg-background-hover'
+              }
+            `}
+            title={`Mudar para tema ${t.name}`}
+            aria-label={`Mudar para tema ${t.name}`}
+          >
+            <span className={isActive ? 'text-primary-accent' : 'text-foreground-muted'}>
+              {t.icon}
+            </span>
+          </button>
+        );
+      })}
+    </div>
   );
 };
 

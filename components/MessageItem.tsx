@@ -32,16 +32,16 @@ const SenderAvatar: React.FC<{ sender: MessageSender }> = ({ sender }) => {
 
   if (sender === MessageSender.USER) {
     avatarChar = 'U';
-    bgColorClass = 'bg-gray-800 dark:bg-white/[.12]';
-    textColorClass = 'text-white';
+    bgColorClass = 'bg-primary-accent';
+    textColorClass = 'text-primary-accent-foreground';
   } else if (sender === MessageSender.MODEL) {
     avatarChar = 'IA';
-    bgColorClass = 'bg-gray-500 dark:bg-[#777777]'; 
-    textColorClass = 'text-white dark:text-[#E2E2E2]';
+    bgColorClass = 'bg-secondary-accent';
+    textColorClass = 'text-secondary-accent-foreground';
   } else { // SYSTEM
     avatarChar = 'S';
-    bgColorClass = 'bg-gray-400 dark:bg-[#4A4A4A]';
-    textColorClass = 'text-white dark:text-[#E2E2E2]';
+    bgColorClass = 'bg-background-hover';
+    textColorClass = 'text-foreground-muted';
   }
 
   return (
@@ -69,18 +69,20 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onGenerateMindMap, o
 
   const renderMessageContent = () => {
     if (isModel && !message.isLoading) {
-      const proseClasses = "prose prose-sm prose-gray dark:prose-invert w-full min-w-0"; 
+      // For model responses, use prose for better typography on markdown
+      const proseClasses = "prose prose-sm prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground prose-headings:text-foreground w-full min-w-0"; 
       const rawMarkup = marked.parse(message.text || "") as string;
       return <div className={proseClasses} dangerouslySetInnerHTML={{ __html: rawMarkup }} />;
     }
     
+    // For user, system, and loading model messages, use simpler text rendering
     let textColorClass = '';
     if (isUser) {
-        textColorClass = 'text-white dark:text-white';
+        textColorClass = 'text-primary-accent-foreground';
     } else if (isSystem) {
-        textColorClass = 'text-gray-500 dark:text-[#A8ABB4]';
+        textColorClass = 'text-foreground-muted';
     } else { // Model loading
-        textColorClass = 'text-gray-800 dark:text-[#E2E2E2]';
+        textColorClass = 'text-foreground';
     }
     return <div className={`whitespace-pre-wrap text-sm ${textColorClass}`}>{message.text}</div>;
   };
@@ -88,11 +90,11 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onGenerateMindMap, o
   let bubbleClasses = "p-3 rounded-lg shadow w-full ";
 
   if (isUser) {
-    bubbleClasses += "bg-gray-800 text-white dark:bg-white/[.12] rounded-br-none";
+    bubbleClasses += "bg-primary-accent text-primary-accent-foreground rounded-br-none";
   } else if (isModel) {
-    bubbleClasses += `bg-white dark:bg-[rgba(119,119,119,0.10)] border border-gray-100 dark:border-t dark:border-[rgba(255,255,255,0.04)] dark:backdrop-blur-lg rounded-bl-none`;
+    bubbleClasses += `bg-background-secondary border border-border rounded-bl-none`;
   } else { // System message
-    bubbleClasses += "bg-gray-200 dark:bg-[#2C2C2C] text-gray-600 dark:text-[#A8ABB4] rounded-bl-none";
+    bubbleClasses += "bg-background-hover text-foreground-muted rounded-bl-none";
   }
 
   return (
@@ -102,32 +104,32 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onGenerateMindMap, o
         <div className={bubbleClasses}>
           {message.isLoading ? (
             <div className="flex items-center space-x-1.5">
-              <div className={`w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:-0.3s] ${isUser ? 'bg-white' : 'bg-gray-500 dark:bg-[#A8ABB4]'}`}></div>
-              <div className={`w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:-0.15s] ${isUser ? 'bg-white' : 'bg-gray-500 dark:bg-[#A8ABB4]'}`}></div>
-              <div className={`w-1.5 h-1.5 rounded-full animate-bounce ${isUser ? 'bg-white' : 'bg-gray-500 dark:bg-[#A8ABB4]'}`}></div>
+              <div className={`w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:-0.3s] ${isUser ? 'bg-primary-accent-foreground' : 'bg-foreground-muted'}`}></div>
+              <div className={`w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:-0.15s] ${isUser ? 'bg-primary-accent-foreground' : 'bg-foreground-muted'}`}></div>
+              <div className={`w-1.5 h-1.5 rounded-full animate-bounce ${isUser ? 'bg-primary-accent-foreground' : 'bg-foreground-muted'}`}></div>
             </div>
           ) : (
             renderMessageContent()
           )}
           
           {(isModel && !message.isLoading && message.text) && (
-            <div className="mt-2.5 pt-2.5 border-t border-gray-200 dark:border-[rgba(255,255,255,0.1)] flex items-center justify-between gap-2">
+            <div className="mt-2.5 pt-2.5 border-t border-border flex items-center justify-between gap-2">
               {message.urlContext && message.urlContext.length > 0 ? (
                 <div>
-                  <h4 className="text-xs font-semibold text-gray-500 dark:text-[#A8ABB4] mb-1">URLs de Contexto Recuperadas:</h4>
+                  <h4 className="text-xs font-semibold text-foreground-muted mb-1">URLs de Contexto Recuperadas:</h4>
                   <ul className="space-y-0.5">
                     {message.urlContext.map((meta, index) => {
                       const statusText = getStatusText(meta.urlRetrievalStatus);
                       const isSuccess = meta.urlRetrievalStatus === 'URL_RETRIEVAL_STATUS_SUCCESS';
 
                       return (
-                        <li key={index} className="text-[11px] text-gray-500 dark:text-[#A8ABB4]">
-                          <a href={meta.retrievedUrl} target="_blank" rel="noopener noreferrer" className="hover:underline break-all text-blue-600 dark:text-[#79B8FF]">
+                        <li key={index} className="text-[11px] text-foreground-muted">
+                          <a href={meta.retrievedUrl} target="_blank" rel="noopener noreferrer" className="hover:underline break-all text-primary-accent">
                             {meta.retrievedUrl}
                           </a>
                           <span className={`ml-1.5 px-1 py-0.5 rounded-sm text-[9px] ${
                             isSuccess
-                              ? 'bg-gray-800 text-white dark:bg-white/[.12] dark:text-white'
+                              ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300'
                               : 'bg-slate-200 text-slate-600 dark:bg-slate-600/30 dark:text-slate-400'
                           }`}>
                             {statusText}
@@ -142,7 +144,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onGenerateMindMap, o
                 {onGenerateMindMap && (
                   <button
                     onClick={() => onGenerateMindMap(message.text)}
-                    className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-[#A8ABB4] hover:text-black dark:hover:text-white bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 px-2 py-1 rounded-md transition-colors"
+                    className="flex items-center gap-1.5 text-xs text-foreground-muted hover:text-foreground bg-background-hover px-2 py-1 rounded-md transition-colors"
                     title="Visualizar como um Mapa Mental"
                   >
                     <BrainCircuit size={14} />
@@ -151,7 +153,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onGenerateMindMap, o
                 {onSaveToLibrary && (
                    <button
                     onClick={() => onSaveToLibrary(message.text)}
-                    className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-[#A8ABB4] hover:text-black dark:hover:text-white bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 px-2 py-1 rounded-md transition-colors"
+                    className="flex items-center gap-1.5 text-xs text-foreground-muted hover:text-foreground bg-background-hover px-2 py-1 rounded-md transition-colors"
                     title="Salvar na Biblioteca"
                   >
                     <Bookmark size={14} />

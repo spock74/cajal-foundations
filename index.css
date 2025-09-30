@@ -1,203 +1,120 @@
+/*
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+*/
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-/* Light theme overrides */
-:root {
-  --scrollbar-track-color: #F9FAFB;
-  --scrollbar-thumb-color: #D1D5DB;
-  --mm-node-bg: #FFFFFF;
-  --mm-node-border: #E5E7EB;
-  --mm-node-text: #1F2937;
-  --mm-controls-bg: #F9FAFB;
-  --mm-controls-border: #E5E7EB;
-  --mm-controls-fill: #374151;
-  --mm-minimap-bg: #F3F4F6;
-  --mm-minimap-border: #E5E7EB;
-  --mm-attribution-bg: rgba(249, 250, 251, 0.8);
+@layer base {
+  :root {
+    --background: 255 255 255; /* white */
+    --foreground: 28 28 28;    /* near-black */
+    
+    --background-secondary: 248 248 248;
+    --background-input: 241 241 241;
+    
+    --border: 238 238 238; /* Softer border */
+    --background-hover: 232 232 232;
+
+    --primary-accent: 25 118 210; /* blue-600 */
+    --primary-accent-foreground: 255 255 255;
+
+    --secondary-accent: 232 232 232;
+    --secondary-accent-foreground: 28 28 28;
+    
+    --destructive: 220 38 38; /* red-600 */
+
+    /* Subtle buttons for light theme */
+    --button-background: 241 241 241;
+    --button-background-hover: 228 228 228;
+    --button-foreground: 28 28 28;
+
+    --button-disabled-background: 228 228 228;
+    --button-disabled-foreground: 128 128 128;
+
+    --foreground-muted: 107 114 128; /* gray-500 */
+  }
+
+  .dark {
+    --background: 28 28 28;
+    --foreground: 235 235 235;
+
+    --background-secondary: 40 40 40;
+    --background-input: 50 50 50;
+
+    --border: 48 48 48; /* Softer border */
+    --background-hover: 70 70 70;
+
+    --primary-accent: 121 184 255; /* light-blue */
+    --primary-accent-foreground: 28 28 28;
+
+    --secondary-accent: 70 70 70;
+    --secondary-accent-foreground: 235 235 235;
+
+    --destructive: 248 113 113; /* red-400 */
+
+    --button-background: 40 40 40;
+    --button-background-hover: 70 70 70;
+    --button-foreground: 255 255 255;
+
+    --button-disabled-background: 50 50 50;
+    --button-disabled-foreground: 115 115 115;
+
+    --foreground-muted: 168 171 180;
+  }
+
+  [data-theme="dracula"] {
+    --background: 40 42 54; /* bg */
+    --foreground: 248 248 242; /* fg */
+
+    --background-secondary: 33 34 44;
+    --background-input: 50 51 64;
+
+    --border: 56 58 72; /* Softer border */
+    --background-hover: 70 72 88;
+
+    --primary-accent: 189 147 249; /* purple */
+    --primary-accent-foreground: 248 248 242;
+
+    --secondary-accent: 98 114 164; /* comments */
+    --secondary-accent-foreground: 248 248 242;
+
+    --destructive: 255 85 85; /* red */
+
+    --button-background: 68 71 90;
+    --button-background-hover: 80 82 96;
+    --button-foreground: 248 248 242;
+
+    --button-disabled-background: 50 51 64;
+    --button-disabled-foreground: 98 114 164;
+
+    --foreground-muted: 150 158 200;
+  }
 }
 
-.dark {
-  --scrollbar-track-color: #282828;
-  --scrollbar-thumb-color: #4A4A4A;
-  --mm-node-bg: #374151; /* Default depth-0 for dark */
-  --mm-node-border: rgba(255, 255, 255, 0.1);
-  --mm-node-text: #E2E2E2;
-  --mm-controls-bg: #2C2C2C;
-  --mm-controls-border: rgba(255, 255, 255, 0.1);
-  --mm-controls-fill: #E2E2E2;
-  --mm-minimap-bg: #282828;
-  --mm-minimap-border: rgba(255, 255, 255, 0.1);
-  --mm-attribution-bg: rgba(30, 30, 30, 0.8);
-}
+@layer base {
+  body {
+    background-color: rgb(var(--background));
+    color: rgb(var(--foreground));
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
 
-body { 
-  margin: 0; 
-  transition: background-color 0.2s ease-out, color 0.2s ease-out;
-}
+  .chat-container::-webkit-scrollbar {
+    width: 6px;
+  }
 
-/* Scrollbar styling */
-.chat-container::-webkit-scrollbar { width: 6px; }
-.chat-container::-webkit-scrollbar-track { background-color: var(--scrollbar-track-color); }
-.chat-container::-webkit-scrollbar-thumb { background-color: var(--scrollbar-thumb-color); border-radius: 3px; }
+  .chat-container::-webkit-scrollbar-track {
+    background-color: rgb(var(--background-secondary));
+  }
 
-/* Light theme markdown */
-.prose-gray h1, .prose-gray h2, .prose-gray h3 { color: #111827; }
-.prose-gray p, .prose-gray ul, .prose-gray ol, .prose-gray li, .prose-gray strong, .prose-gray em { color: #374151; }
-.prose-gray blockquote { border-left-color: #D1D5DB; color: #6B7280; }
-.prose-gray a { color: #2563EB; }
+  .chat-container::-webkit-scrollbar-thumb {
+    background-color: rgb(var(--border));
+    border-radius: 3px;
+  }
 
-/* Dark theme markdown */
-.dark .prose-invert h1, .dark .prose-invert h2, .dark .prose-invert h3 { color: #E2E2E2; }
-.dark .prose-invert p, .dark .prose-invert ul, .dark .prose-invert ol, .dark .prose-invert li, .dark .prose-invert strong, .dark .prose-invert em { color: #E2E2E2; }
-.dark .prose-invert blockquote { border-left-color: #4A4A4A; color: #A8ABB4; }
-.dark .prose-invert a { color: #79B8FF; }
-
-/* Common markdown styles */
-.prose h1 { font-size: 1.5em; font-weight: bold; margin-top: 0.8em; margin-bottom: 0.4em; }
-.prose h2 { font-size: 1.25em; font-weight: bold; margin-top: 0.7em; margin-bottom: 0.35em; }
-.prose h3 { font-size: 1.1em; font-weight: bold; margin-top: 0.6em; margin-bottom: 0.3em; }
-.prose p { margin-bottom: 0.4em; line-height: 1.5; }
-.prose ul, .prose ol { margin-left: 1.25em; margin-bottom: 0.4em; }
-.prose li { margin-bottom: 0.2em; }
-.prose strong { font-weight: bold; }
-.prose em { font-style: italic; }
-.prose code { padding: 0.2em 0.4em; border-radius: 3px; font-family: 'Courier New', Courier, monospace; font-size: 0.9em; }
-.prose pre { padding: 0.8em; border-radius: 4px; overflow-x: auto; margin-bottom: 0.5em; }
-.prose pre code { background-color: transparent; padding: 0; font-size: 0.9em; color: inherit; }
-.prose blockquote { border-left: 3px solid; margin-left: 0; padding-left: 1em; margin-bottom: 0.5em;}
-.prose a { text-decoration: underline; }
-
-/* Mind Map Node Styling */
-.react-flow .react-flow__node {
-  border: 1px solid var(--mm-node-border) !important;
-  color: var(--mm-node-text) !important;
-  border-radius: 8px !important;
-  font-size: 12px !important;
-  padding: 8px 12px !important;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  min-width: 120px;
-  text-align: center;
-}
-
-.dark .react-flow .react-flow__node {
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
-}
-
-/* Light Theme Node colors by depth */
-.react-flow .react-flow__node.depth-0 { background-color: #F3F4F6 !important; } /* Gray */
-.react-flow .react-flow__node.depth-1 { background-color: #ECFDF5 !important; } /* Green */
-.react-flow .react-flow__node.depth-2 { background-color: #F5F3FF !important; } /* Purple */
-.react-flow .react-flow__node.depth-3 { background-color: #FEF2F2 !important; } /* Red */
-
-/* Dark Theme Node colors by depth */
-.dark .react-flow .react-flow__node.depth-0 { background-color: #374151 !important; } /* Gray */
-.dark .react-flow .react-flow__node.depth-1 { background-color: #14532d !important; } /* Green */
-.dark .react-flow .react-flow__node.depth-2 { background-color: #4c1d95 !important; } /* Purple */
-.dark .react-flow .react-flow__node.depth-3 { background-color: #7f1d1d !important; } /* Red */
-
-
-/* Custom Node Content & Toggle Button */
-.mindmap-node-content {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.mindmap-node-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  border: 1px solid var(--mm-node-border);
-  border-radius: 50%;
-  font-size: 10px;
-  font-family: monospace;
-  line-height: 1;
-  cursor: pointer;
-  background-color: transparent;
-  color: var(--mm-node-text);
-  transition: background-color 0.2s, transform 0.2s;
-}
-.mindmap-node-toggle:hover {
-  background-color: rgba(0,0,0,0.05);
-  transform: scale(1.1);
-}
-.dark .mindmap-node-toggle:hover {
-  background-color: rgba(255,255,255,0.15);
-}
-
-.react-flow .react-flow__handle {
-  width: 6px !important;
-  height: 6px !important;
-  background: #2563EB !important;
-  border: none !important;
-  opacity: 0;
-}
-.dark .react-flow .react-flow__handle {
-  background: #79B8FF !important;
-}
-
-.react-flow__attribution {
-  background-color: var(--mm-attribution-bg) !important;
-}
-
-.react-flow__controls-button {
-  background-color: var(--mm-controls-bg) !important;
-  border-bottom: 1px solid var(--mm-controls-border) !important;
-  fill: var(--mm-controls-fill) !important;
-}
-.react-flow__controls-button:hover {
-  background-color: #E5E7EB !important;
-}
-.dark .react-flow__controls-button:hover {
-  background-color: #4A4A4A !important;
-}
-
-.react-flow__minimap {
-  background-color: var(--mm-minimap-bg) !important;
-  border: 1px solid var(--mm-minimap-border) !important;
-}
-
-/* Custom styles for the mind map modal */
-.mind-map-modal-overlay {
-  position: fixed;
-  inset: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
-  z-index: 40;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: fadeIn 0.3s ease-out;
-}
-.dark .mind-map-modal-overlay {
-  background-color: rgba(0, 0, 0, 0.7);
-}
-
-.mind-map-modal-content {
-  background-color: #F9FAFB; /* light */
-  border: 1px solid #E5E7EB; /* light */
-  border-radius: 16px;
-  width: 90vw;
-  height: 90vh;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  overflow: hidden;
-  animation: slideUp 0.4s ease-out;
-}
-.dark .mind-map-modal-content {
-  background-color: #1E1E1E;
-  border-color: rgba(255, 255, 255, 0.1);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-@keyframes slideUp {
-  from { transform: translateY(20px); opacity: 0.5; }
-  to { transform: translateY(0); opacity: 1; }
+  .chat-container::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(var(--foreground-muted));
+  }
 }
