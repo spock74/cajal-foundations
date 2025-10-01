@@ -4,11 +4,20 @@
 */
 
 import React from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeHighlight from 'rehype-highlight';
+import { marked } from 'marked';
+import { markedHighlight } from "marked-highlight";
+import hljs from 'highlight.js';
 import { ChatMessage, MessageSender } from '../types';
 import { BrainCircuit, Bookmark } from 'lucide-react';
+
+// Configure marked to use highlight.js for syntax highlighting
+marked.use(markedHighlight({
+  langPrefix: 'hljs language-',
+  highlight(code, lang) {
+    const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+    return hljs.highlight(code, { language }).value;
+  }
+}));
 
 interface MessageItemProps {
   message: ChatMessage;
@@ -59,17 +68,10 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onGenerateMindMap, o
   const isSystem = message.sender === MessageSender.SYSTEM;
 
   const renderMessageContent = () => {
-    if (isModel) {
-      return (
-        <div className="prose prose-sm prose-gray dark:prose-invert w-full min-w-0">
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            rehypePlugins={[rehypeHighlight]}
-          >
-            {message.text}
-          </ReactMarkdown>
-        </div>
-      );
+    if (isModel && !message.isLoading) {
+      const proseClasses = "prose prose-sm prose-gray dark:prose-invert w-full min-w-0"; 
+      const rawMarkup = marked.parse(message.text || "") as string;
+      return <div className={proseClasses} dangerouslySetInnerHTML={{ __html: rawMarkup }} />;
     }
     
     let textColorClass = '';
@@ -77,6 +79,8 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onGenerateMindMap, o
         textColorClass = 'text-white dark:text-white';
     } else if (isSystem) {
         textColorClass = 'text-gray-500 dark:text-[#A8ABB4]';
+    } else { // Model loading
+        textColorClass = 'text-gray-800 dark:text-[#E2E2E2]';
     }
     return <div className={`whitespace-pre-wrap text-sm ${textColorClass}`}>{message.text}</div>;
   };
@@ -96,7 +100,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onGenerateMindMap, o
       <div className={`flex items-start gap-2 max-w-[85%]`}>
         {!isUser && <SenderAvatar sender={message.sender} />}
         <div className={bubbleClasses}>
-          {message.isLoading && message.sender !== MessageSender.MODEL ? (
+          {message.isLoading ? (
             <div className="flex items-center space-x-1.5">
               <div className={`w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:-0.3s] ${isUser ? 'bg-white' : 'bg-gray-500 dark:bg-[#A8ABB4]'}`}></div>
               <div className={`w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:-0.15s] ${isUser ? 'bg-white' : 'bg-gray-500 dark:bg-[#A8ABB4]'}`}></div>

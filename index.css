@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+
 
 /* Light theme overrides */
 :root {
@@ -40,6 +38,33 @@ body {
 .chat-container::-webkit-scrollbar { width: 6px; }
 .chat-container::-webkit-scrollbar-track { background-color: var(--scrollbar-track-color); }
 .chat-container::-webkit-scrollbar-thumb { background-color: var(--scrollbar-thumb-color); border-radius: 3px; }
+
+/* Light theme markdown */
+.prose-gray h1, .prose-gray h2, .prose-gray h3 { color: #111827; }
+.prose-gray p, .prose-gray ul, .prose-gray ol, .prose-gray li, .prose-gray strong, .prose-gray em { color: #374151; }
+.prose-gray blockquote { border-left-color: #D1D5DB; color: #6B7280; }
+.prose-gray a { color: #2563EB; }
+
+/* Dark theme markdown */
+.dark .prose-invert h1, .dark .prose-invert h2, .dark .prose-invert h3 { color: #E2E2E2; }
+.dark .prose-invert p, .dark .prose-invert ul, .dark .prose-invert ol, .dark .prose-invert li, .dark .prose-invert strong, .dark .prose-invert em { color: #E2E2E2; }
+.dark .prose-invert blockquote { border-left-color: #4A4A4A; color: #A8ABB4; }
+.dark .prose-invert a { color: #79B8FF; }
+
+/* Common markdown styles */
+.prose h1 { font-size: 1.5em; font-weight: bold; margin-top: 0.8em; margin-bottom: 0.4em; }
+.prose h2 { font-size: 1.25em; font-weight: bold; margin-top: 0.7em; margin-bottom: 0.35em; }
+.prose h3 { font-size: 1.1em; font-weight: bold; margin-top: 0.6em; margin-bottom: 0.3em; }
+.prose p { margin-bottom: 0.4em; line-height: 1.5; }
+.prose ul, .prose ol { margin-left: 1.25em; margin-bottom: 0.4em; }
+.prose li { margin-bottom: 0.2em; }
+.prose strong { font-weight: bold; }
+.prose em { font-style: italic; }
+.prose code { padding: 0.2em 0.4em; border-radius: 3px; font-family: 'Courier New', Courier, monospace; font-size: 0.9em; }
+.prose pre { padding: 0.8em; border-radius: 4px; overflow-x: auto; margin-bottom: 0.5em; }
+.prose pre code { background-color: transparent; padding: 0; font-size: 0.9em; color: inherit; }
+.prose blockquote { border-left: 3px solid; margin-left: 0; padding-left: 1em; margin-bottom: 0.5em;}
+.prose a { text-decoration: underline; }
 
 /* Mind Map Node Styling */
 .react-flow .react-flow__node {
@@ -175,10 +200,4 @@ body {
 @keyframes slideUp {
   from { transform: translateY(20px); opacity: 0.5; }
   to { transform: translateY(0); opacity: 1; }
-}
-
-/* Fix for markdown list indentation inside prose */
-.prose ul,
-.prose ol {
-  padding-left: 1.5rem;
 }

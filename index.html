@@ -1,3 +1,20 @@
+<script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.21.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.544.0",
+    "react/": "https://aistudiocdn.com/react@^19.1.1/",
+    "react": "https://aistudiocdn.com/react@^19.1.1",
+    "marked": "https://aistudiocdn.com/marked@^16.3.0",
+    "reactflow": "https://aistudiocdn.com/reactflow@^11.11.4",
+    "highlight.js": "https://aistudiocdn.com/highlight.js@^11.11.1",
+    "dexie": "https://aistudiocdn.com/dexie@^4.2.0",
+    "dagre": "https://aistudiocdn.com/dagre@^0.8.5",
+    "marked-highlight": "https://aistudiocdn.com/marked-highlight@^2.2.2"
+  }
+}
+</script>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,18 +25,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Inter', 'sans-serif'],
-          },
-        }
-      }
-    }
-  </script>
   <link rel="stylesheet" href="/index.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" id="hljs-dark-theme">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-light.min.css" id="hljs-light-theme" disabled>
@@ -36,14 +41,4 @@
     "lucide-react": "https://esm.sh/lucide-react@^0.417.0",
     "highlight.js": "https://esm.sh/highlight.js@^11.9.0",
     "reactflow": "https://esm.sh/reactflow@^11.11.4",
-    "dagre": "https://esm.sh/dagre@^0.8.5",
-    "dexie": "https://esm.sh/dexie@^4.0.8"
-  }
-}
-</script>
-</head>
-<body>
-  <div id="root"></div>
-  <script type="module" src="/src/index.tsx"></script>
-</body>
-</html>
+    
