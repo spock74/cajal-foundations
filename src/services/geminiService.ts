@@ -4,7 +4,7 @@
  *
  * @fileoverview
  * Serviço Singleton para interações com a API Google Gemini.
- * Gerencia o estado da sessão de chat (memória) e as chamadas one-shot.
+ * Gerencia o estado da sessão de chat (com streaming) e as chamadas one-shot.
  */
 
 import {
@@ -12,14 +12,11 @@ import {
   HarmCategory,
   HarmBlockThreshold,
   type SafetySetting,
-  type ChatSession,
-  type Content,
 } from "@google/genai";
 import type { KnowledgeSource } from '../types';
 
 // --- DEFINIÇÕES DE TIPO E CONSTANTES ---
-
-const MODEL_NAME = "gemini-1.5-flash"; // Modelo atualizado
+const MODEL_NAME = "gemini-2.5-flash";
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 // --- A CLASSE SINGLETON ---
@@ -28,15 +25,15 @@ class GeminiService {
   private static instance: GeminiService;
 
   private genAI: GoogleGenAI;
-  private activeChatSession: ChatSession | null = null;
+  private activeChatSession: any | null = null; // Using any to simplify type issues with the chat session
   private safetySettings: SafetySetting[];
-  private systemInstruction: Content;
+  private systemInstruction: string; // System instruction is a string
 
   private constructor() {
     if (!API_KEY) {
-      throw new Error("Chave da API Gemini não configurada. Verifique seu arquivo .env.");
+      throw new Error("Chave da API Gemini não configurada. Verifique seu arquivo .env (VITE_GEMINI_API_KEY).");
     }
-    this.genAI = new GoogleGenAI(API_KEY);
+    this.genAI = new GoogleGenAI({ apiKey: API_KEY });
 
     this.safetySettings = [
       { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
@@ -45,10 +42,7 @@ class GeminiService {
       { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
     ];
 
-    this.systemInstruction = {
-      role: "system",
-      parts: [{ text: "Você é um assistente de pesquisa e especialista em educação médica. Sua principal função é fornecer resumos, avaliações e diagnósticos psicométricos de alta qualidade, baseados estritamente nas fontes e instruções do usuário." }]
-    };
+    this.systemInstruction = "Você é um assistente de pesquisa e especialista em educação médica. Sua principal função é fornecer resumos, avaliações e diagnósticos psicométricos de alta qualidade, baseados estritamente nas fontes e instruções do usuário.";
   }
 
   public static getInstance(): GeminiService {
@@ -58,51 +52,42 @@ class GeminiService {
     return GeminiService.instance;
   }
 
-  private getModel() {
-    return this.genAI.getGenerativeModel({
-      model: MODEL_NAME,
-      safetySettings: this.safetySettings,
-      systemInstruction: this.systemInstruction,
-      tools: [{ google_search: {} }], // Ferramenta de busca habilitada corretamente
-    });
-  }
-
   public async sendMessageStream(
     prompt: string,
     sources: KnowledgeSource[],
     onStreamUpdate: (chunk: string) => void
   ): Promise<void> {
     if (!this.activeChatSession) {
-      const model = this.getModel();
-      this.activeChatSession = model.startChat({
+      // Correct structure: use a 'config' object for settings
+      this.activeChatSession = this.genAI.chats.create({
+        model: MODEL_NAME,
         history: [],
+        config: {
+          safetySettings: this.safetySettings,
+          systemInstruction: this.systemInstruction,
+          tools: [{ googleSearch: {} }],
+        }
       });
     }
 
     const urls = sources.filter(s => s.type === 'url').map(s => s.value as string);
-    let fullPrompt = prompt;
-
-    if (urls.length > 0) {
-      const urlList = urls.join(' \n');
-      // A instrução explícita ajuda o modelo a focar na URL fornecida
-      fullPrompt = `Com base EXCLUSIVAMENTE no conteúdo da seguinte URL: ${urlList}, responda à seguinte pergunta: ${prompt}`;
-    }
+    const fullPrompt = urls.length > 0
+      ? `Com base no conteúdo da(s) seguinte(s) URL(s): ${urls.join(' \n')}, responda: ${prompt}`
+      : prompt;
 
     try {
-      const result = await this.activeChatSession.sendMessageStream(fullPrompt);
+      // Correct structure: pass prompt as an object
+      const resultStream = await this.activeChatSession.sendMessageStream({ message: fullPrompt });
 
-      for await (const chunk of result.stream) {
-        // A API pode retornar chunks vazios ou sem a função text()
-        if (chunk && typeof chunk.text === 'function') {
-          const chunkText = chunk.text();
-          if (chunkText) {
-            onStreamUpdate(chunkText);
-          }
+      for await (const chunk of resultStream) {
+        // Access text via getter
+        if (chunk.text) {
+          onStreamUpdate(chunk.text);
         }
       }
     } catch (error) {
       console.error("Erro no sendMessageStream:", error);
-      this.activeChatSession = null; // Reseta a sessão em caso de erro
+      this.activeChatSession = null;
       throw new Error(`Falha ao obter resposta da IA. Detalhes: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
@@ -112,18 +97,20 @@ class GeminiService {
   }
 
   public async generateMindMapFromText(textToAnalyze: string): Promise<{ nodes: any[], edges: any[] }> {
-    const model = this.getModel();
     const prompt = `Analise o texto a seguir e extraia os conceitos-chave e suas relações como um mapa mental. Retorne APENAS um objeto JSON com duas chaves: "nodes" e "edges". O formato deve ser compatível com a biblioteca reactflow. Exemplo de node: { "id": "1", "position": { "x": 0, "y": 0 }, "data": { "label": "Conceito Principal" } }. Exemplo de edge: { "id": "e1-2", "source": "1", "target": "2" }.`;
 
     try {
-      const result = await model.generateContent({
-        contents: [{ role: 'user', parts: [{ text: prompt }, {text: `Texto para analisar: ${textToAnalyze}`}] }],
-        generationConfig: {
+      const result = await this.genAI.models.generateContent({
+        model: MODEL_NAME,
+        contents: [{ role: 'user', parts: [{ text: prompt }, { text: `Texto para analisar: ${textToAnalyze}` }] }],
+        // Correct structure: use a 'config' object for settings
+        config: {
+          safetySettings: this.safetySettings,
           responseMimeType: "application/json",
         },
       });
       
-      const responseText = result.response.text();
+      const responseText = result.text;
       const parsed = JSON.parse(responseText);
 
       if (!parsed.nodes || !parsed.edges) {
