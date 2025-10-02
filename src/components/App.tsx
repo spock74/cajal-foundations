@@ -100,7 +100,8 @@ const App: React.FC = () => {
 
 
    useEffect(() => {
-    const apiKey = process.env.API_KEY;
+    // const apiKey = process.env.API_KEY;
+    const apiKey = "AIzaSyAF4P7ayVvtn_my5RDTDEApGdFAQOJWxvU";
     const currentActiveGroup = knowledgeGroups.find(group => group.id === activeGroupId);
     const welcomeMessageText = !apiKey 
         ? 'ERRO: A chave da API Gemini (process.env.API_KEY) não está configurada. Por favor, defina esta variável de ambiente para usar a aplicação.'
@@ -158,7 +159,8 @@ const App: React.FC = () => {
   }, []); 
 
   useEffect(() => {
-    if (currentSourcesForChat.length > 0 && process.env.API_KEY) { 
+    // if (currentSourcesForChat.length > 0 && process.env.API_KEY) { 
+    if (currentSourcesForChat.length > 0 && "AIzaSyAF4P7ayVvtn_my5RDTDEApGdFAQOJWxvU") { 
         fetchAndSetInitialSuggestions(currentSourcesForChat);
     } else {
         setInitialQuerySuggestions([]); 
@@ -245,7 +247,8 @@ const App: React.FC = () => {
   const handleSendMessage = async (query: string) => {
     if (!query.trim() || isLoading || isFetchingSuggestions) return;
 
-    const apiKey = process.env.API_KEY;
+    // const apiKey = process.env.API_KEY;
+    const apiKey = "AIzaSyAF4P7ayVvtn_my5RDTDEApGdFAQOJWxvU";
     if (!apiKey) {
        setChatMessages(prev => [...prev, {
         id: `error-apikey-${Date.now()}`,

@@ -8,12 +8,13 @@ import { GoogleGenAI, GenerateContentResponse, Tool, HarmCategory, HarmBlockThre
 import { UrlContextMetadataItem, KnowledgeSource } from '../types';
 
 // IMPORTANT: The API key MUST be set as an environment variable `process.env.API_KEY`
-const API_KEY = process.env.API_KEY;
+// const API_KEY = process.env.API_KEY;
+const API_KEY = "AIzaSyAF4P7ayVvtn_my5RDTDEApGdFAQOJWxvU";
 
 let ai: GoogleGenAI;
 
 // Model supporting URL context, consistent with user examples and documentation.
-const MODEL_NAME = "gemini-2.5-flash"; 
+const MODEL_NAME = "gemini-2.5-flash-lite"; 
 
 const getAiInstance = (): GoogleGenAI => {
   if (!API_KEY) {
