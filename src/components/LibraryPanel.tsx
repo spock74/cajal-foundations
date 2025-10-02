@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { FileText, Trash2, FileSearch, Settings, HelpCircle, Bot, Code, Share2 } from 'lucide-react';
+import { FileText, Trash2, FileSearch, Settings, HelpCircle, Bot, Code, Share2, BrainCircuit } from 'lucide-react';
 import { LibraryItem } from '../types';
 
 interface LibraryPanelProps {
@@ -16,7 +16,7 @@ interface LibraryPanelProps {
 const ActionButton: React.FC<{ icon: React.ReactNode; label: string; title: string }> = ({ icon, label, title }) => (
   <button 
     title={title}
-    className="flex flex-col items-center justify-center gap-1 p-2 text-xs text-center text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-lg transition-colors"
+    className="flex flex-col items-center justify-center gap-1 p-2 text-xs text-center text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-lg transition-colors border border-black/5 dark:border-white/10"
   >
     {icon}
     <span className="truncate">{label}</span>
@@ -73,11 +73,15 @@ const LibraryPanel: React.FC<LibraryPanelProps> = ({ items, onDeleteItem }) => {
           filteredItems.map(item => (
             <div 
               key={item.id} 
-              className="p-2.5 bg-gray-100 dark:bg-[#2C2C2C] border border-gray-200 dark:border-[rgba(255,255,255,0.05)] rounded-lg group"
+              className="p-2.5 bg-gray-100 dark:bg-[#2C2C2C] border border-black/5 dark:border-white/10 rounded-lg group transition-colors hover:bg-gray-200 dark:hover:bg-white/5"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-start gap-2 min-w-0">
-                  <FileText size={16} className="text-gray-500 dark:text-[#A8ABB4] flex-shrink-0 mt-0.5" />
+                  {item.type === 'mindmap' ? (
+                    <BrainCircuit size={16} className="text-blue-500 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                  ) : (
+                    <FileText size={16} className="text-gray-500 dark:text-[#A8ABB4] flex-shrink-0 mt-0.5" />
+                  )}
                   <p className="text-xs text-gray-700 dark:text-gray-300 line-clamp-3">
                     {item.content}
                   </p>

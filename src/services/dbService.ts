@@ -28,7 +28,7 @@ export class MyDatabase extends Dexie {
     // Isso irá migrar o banco de dados existente no navegador do usuário.
     this.version(6).stores({
       savedItems: '++id, content, timestamp',
-      sourceContents: '&hashId, groupId', // '&' indica que 'hashId' é a chave primária e deve ser única.
+      sourceContents: '&hashId, metadata.groupId', // '&' indica que 'hashId' é a chave primária e deve ser única.
       knowledgeGroups: 'id, name',
       conversations: 'id, groupId, timestamp',
       chatMessages: 'id, conversationId, timestamp',

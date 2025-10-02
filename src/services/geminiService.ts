@@ -23,7 +23,8 @@ const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 export interface GeminiResponse {
   text: string;
   urlContextMetadata?: UrlContextMetadataItem[];
-  usageMetadata?: any;
+  usageMetadata?: { promptTokenCount: number, candidatesTokenCount: number, totalTokenCount: number };
+  modelName: string;
 }
 
 // --- A CLASSE SINGLETON ---
@@ -120,7 +121,7 @@ public async generateContentWithSources(prompt: string, sources: KnowledgeSource
       }));
     }
 
-    return { text, urlContextMetadata: extractedUrlContextMetadata, usageMetadata };
+    return { text, urlContextMetadata: extractedUrlContextMetadata, usageMetadata, modelName: MODEL_NAME };
   } catch (error) {
     // Sugestão: Usar o helper de erro centralizado.
     throw this.handleError(error, 'generateContentWithSources');
@@ -187,13 +188,14 @@ public async generateContentWithSources(prompt: string, sources: KnowledgeSource
     }
   }
 
-  public async generateMindMapFromText(textToAnalyze: string): Promise<{ nodes: any[], edges: any[] }> {
+  public async generateMindMapFromText(textToAnalyze: string): Promise<{ title: string, nodes: any[], edges: any[] }> {
     const prompt = `Analise o texto: "${textToAnalyze}" e gere um mapa mental em JSON (nodes, edges)...`;
 
     // Sugestão: Prompt mais detalhado para garantir um formato de saída consistente.
     const structuredPrompt = `
       Analise o texto a seguir e estruture as informações como um mapa mental.
-      Sua resposta DEVE ser um objeto JSON contendo duas chaves: "nodes" e "edges".
+      Sua resposta DEVE ser um objeto JSON contendo três chaves: "title", "nodes" e "edges".
+      - "title": Uma string contendo um título curto e descritivo para o mapa mental (máximo 7 palavras).
       - "nodes": Um array de objetos, onde cada objeto tem "id" (string), "label" (string), e "type" (string, ex: 'main', 'subtopic').
       - "edges": Um array de objetos, onde cada objeto tem "id" (string), "source" (o 'id' de um nó), e "target" (o 'id' de outro nó).
       Texto para análise:
@@ -212,8 +214,8 @@ public async generateContentWithSources(prompt: string, sources: KnowledgeSource
       });
 
       const parsed = JSON.parse(result.text);
-      if (!parsed.nodes || !parsed.edges) throw new Error("JSON do mapa mental inválido.");
-      return { nodes: parsed.nodes, edges: parsed.edges };
+      if (!parsed.title || !parsed.nodes || !parsed.edges) throw new Error("JSON do mapa mental inválido ou incompleto.");
+      return { title: parsed.title, nodes: parsed.nodes, edges: parsed.edges };
     } catch (error) {
       throw this.handleError(error, 'generateMindMapFromText');
     }

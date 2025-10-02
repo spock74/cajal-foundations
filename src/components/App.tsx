@@ -56,6 +56,7 @@ const App: React.FC = () => {
           <div className="w-full h-full p-0 md:flex-1">
             <ChatInterface
               messages={chatMessages}
+              activeSources={sourcesForActiveGroup}
               conversationTitle={activeConversationName}
               onSendMessage={handleSendMessage}
               isLoading={isLoading}

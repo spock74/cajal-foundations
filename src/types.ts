@@ -14,12 +14,20 @@ export interface UrlContextMetadataItem {
   urlRetrievalStatus: string;
 }
 
+export interface UsageMetadata {
+  promptTokenCount: number;
+  candidatesTokenCount: number;
+  totalTokenCount: number;
+}
+
 export interface MindMapData {
+  title?: string;
   nodes: any[];
   edges: any[];
   isLoading: boolean;
   error: string | null;
   isVisible: boolean;
+  isArchived?: boolean;
   expandedNodeIds?: string[];
   nodePositions?: { [nodeId: string]: { x: number; y: number } };
 }
@@ -40,6 +48,9 @@ export interface ChatMessage {
   isLoading?: boolean;
   urlContext?: UrlContextMetadataItem[];
   mindMap?: MindMapData;
+  sourceIds?: string[];
+  model?: string;
+  usageMetadata?: UsageMetadata;
 }
 
 // Interface base para metadados comuns a todas as fontes de conhecimento.
@@ -78,6 +89,11 @@ export interface KnowledgeGroup {
 
 export interface LibraryItem {
   id?: number;
+  type: 'text' | 'mindmap';
   content: string;
+  conversationId: string;
+  groupId: string;
+  sourceIds: string[];
   timestamp: Date;
+  messageId?: string;
 }

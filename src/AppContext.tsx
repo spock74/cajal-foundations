@@ -46,9 +46,9 @@ interface AppContextActions {
   handleFileAdd: (file: File) => Promise<void>;
   handleRemoveSource: (sourceId: string) => Promise<void>;
   handleToggleSourceSelection: (sourceId: string) => void;
-  handleSaveToLibrary: (content: string) => Promise<void>;
+  handleSaveToLibrary: (message: ChatMessage) => Promise<void>;
   handleDeleteLibraryItem: (id: number) => Promise<void>;
-  handleSendMessage: (query: string) => Promise<void>;
+  handleSendMessage: (query: string, sourceIds: string[]) => Promise<void>;
   handleGenerateMindMap: (messageId: string, text: string) => Promise<void>;
   handleMindMapLayoutChange: (messageId: string, layout: { expandedNodeIds?: string[], nodePositions?: { [nodeId: string]: { x: number, y: number } } }) => void;
 }
@@ -158,7 +158,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       const newSource = await sourceManagerService.addUrlSource(url, activeGroupId);
       setAllKnowledgeSources(prev => prev.find(s => s.id === newSource.id) ? prev : [...prev, newSource]);
-      setGroups(prev => prev.map(g => g.id === activeGroupId ? { ...g, sources: [...g.sources, newSource] } : g));
+      setGroups(prevGroups => {
+        const newGroups = prevGroups.map(g => g.id === activeGroupId ? { ...g, sources: [...g.sources, newSource] } : g);
+        const updatedGroup = newGroups.find(g => g.id === activeGroupId);
+        if (updatedGroup) db.knowledgeGroups.update(activeGroupId, { sources: updatedGroup.sources });
+        return newGroups;
+      });
     } catch (error) {
       alert(error instanceof Error ? error.message : "Ocorreu um erro desconhecido.");
     } finally {
@@ -172,7 +177,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       const newSource = await sourceManagerService.addFileSource(file, activeGroupId);
       setAllKnowledgeSources(prev => prev.find(s => s.id === newSource.id) ? prev : [...prev, newSource]);
-      setGroups(prev => prev.map(g => g.id === activeGroupId ? { ...g, sources: [...g.sources, newSource] } : g));
+      setGroups(prevGroups => {
+        const newGroups = prevGroups.map(g => g.id === activeGroupId ? { ...g, sources: [...g.sources, newSource] } : g);
+        const updatedGroup = newGroups.find(g => g.id === activeGroupId);
+        if (updatedGroup) db.knowledgeGroups.update(activeGroupId, { sources: updatedGroup.sources });
+        return newGroups;
+      });
     } catch (error) {
       alert(error instanceof Error ? error.message : "Ocorreu um erro desconhecido.");
     } finally {
@@ -187,22 +197,38 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setGroups(prev => prev.map(g => g.id === activeGroupId ? { ...g, sources: g.sources.filter(s => s.id !== sourceId) } : g));
   };
 
-  const handleToggleSourceSelection = (sourceId: string) => {
-    setAllKnowledgeSources(prev => prev.map(s => s.id === sourceId ? { ...s, selected: !s.selected } : s));
+  const handleToggleSourceSelection = (sourceId: string) => { // Esta função precisa atualizar o grupo também
+    setGroups(prevGroups => prevGroups.map(g => {
+      if (g.id === activeGroupId && g.sources) {
+        const newSources = g.sources.map(s => s.id === sourceId ? { ...s, selected: !s.selected } : s);
+        // Persiste a mudança no banco de dados
+        db.knowledgeGroups.update(activeGroupId, { sources: newSources });
+        return { ...g, sources: newSources };
+      }
+      return g;
+    }));
   };
 
-  const handleSaveToLibrary = async (content: string) => {
-    const newItem: LibraryItem = { content, timestamp: new Date() };
+  const handleSaveToLibrary = async (message: ChatMessage) => {
+    if (!activeGroupId || !activeConversationId) return;
+    const newItem: LibraryItem = {
+      type: 'text',
+      content: message.text, 
+      timestamp: new Date(),
+      conversationId: activeConversationId,
+      groupId: activeGroupId,
+      messageId: message.id,
+      sourceIds: message.sourceIds || []
+    };
     const id = await db.addSavedItem(newItem);
     setLibraryItems(prev => [...prev, { ...newItem, id }].sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime()));
   };
-
   const handleDeleteLibraryItem = async (id: number) => {
     await db.deleteSavedItem(id);
     setLibraryItems(prev => prev.filter(item => item.id !== id));
   };
   
-  const handleSendMessage = async (query: string) => {
+  const handleSendMessage = async (query: string, sourceIds: string[]) => {
     if (!query.trim() || isLoading || !activeGroupId) return;
     setIsLoading(true);
     let currentConversationId = activeConversationId;
@@ -215,15 +241,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setActiveConversationId(newConversationId);
       currentConversationId = newConversationId;
     }
-    const userMessage: ChatMessage = { id: `user-${Date.now()}`, conversationId: currentConversationId, text: query, sender: MessageSender.USER, timestamp: new Date() };
-    const modelPlaceholder: ChatMessage = { id: `model-${Date.now()}`, conversationId: currentConversationId, text: 'Processando...', sender: MessageSender.MODEL, timestamp: new Date(), isLoading: true };
+    const userMessage: ChatMessage = { id: `user-${Date.now()}`, conversationId: currentConversationId, text: query, sender: MessageSender.USER, timestamp: new Date(), sourceIds };
+    const modelPlaceholder: ChatMessage = { id: `model-${Date.now()}`, conversationId: currentConversationId, text: 'Processando...', sender: MessageSender.MODEL, timestamp: new Date(), isLoading: true, sourceIds };
     setChatMessages(prev => [...prev, userMessage, modelPlaceholder]);
     await db.addChatMessage(userMessage);
     await db.addChatMessage(modelPlaceholder);
     try {
-      const selectedSources = sourcesForActiveGroup.filter(s => s.selected);
+      const selectedSources = allKnowledgeSources.filter(s => sourceIds.includes(s.id));
       const response = await geminiService.generateContentWithSources(query, selectedSources);
-      const finalMessage: ChatMessage = { ...modelPlaceholder, text: response.text, isLoading: false, urlContext: response.urlContextMetadata, mindMap: undefined };
+      const finalMessage: ChatMessage = { 
+        ...modelPlaceholder, 
+        text: response.text, 
+        isLoading: false, 
+        urlContext: response.urlContextMetadata, 
+        mindMap: undefined,
+        model: response.modelName,
+        usageMetadata: response.usageMetadata,
+      };
       setChatMessages(prev => prev.map(msg => msg.id === modelPlaceholder.id ? finalMessage : msg));
       await db.updateChatMessage(modelPlaceholder.id, finalMessage);
     } catch (e: any) {
@@ -237,6 +271,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const handleGenerateMindMap = async (messageId: string, text: string) => {
     if (!activeConversationId) return;
+
+    // Encontra a mensagem atual para verificar seu estado.
+    const currentMessage = chatMessages.find(msg => msg.id === messageId);
+    const existingMindMap = currentMessage?.mindMap;
+
+    // Se o mapa já foi gerado, apenas alterna a visibilidade.
+    if (existingMindMap && existingMindMap.nodes.length > 0) {
+      const updatedMindMap = { ...existingMindMap, isVisible: !existingMindMap.isVisible };
+      setChatMessages(prev => prev.map(msg => msg.id === messageId ? { ...msg, mindMap: updatedMindMap } : msg));
+      await db.updateChatMessage(messageId, { mindMap: updatedMindMap });
+      return;
+    }
+
+    // Se não existe, procede com a geração.
     const updateMindMapState = (update: Partial<ChatMessage>) => {
       setChatMessages(prev => {
         const newMessages = prev.map(msg => msg.id === messageId ? { ...msg, ...update } : msg);
@@ -245,18 +293,35 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return newMessages;
       });
     };
+
     updateMindMapState({ mindMap: { isVisible: true, isLoading: true, error: null, nodes: [], edges: [] } });
     try {
-      const { nodes, edges } = await geminiService.generateMindMapFromText(text);
+      const { title, nodes, edges } = await geminiService.generateMindMapFromText(text);
       if (nodes.length === 0) throw new Error("Não foi possível extrair conceitos para o mapa mental.");
       const rootNode = nodes.find(n => !edges.some(e => e.target === n.id)) || nodes[0];
+      
+      // Salva o mapa mental na biblioteca
+      const libraryItem: LibraryItem = {
+        type: 'mindmap',
+        content: title, // O título do mapa vai para o conteúdo do item da biblioteca
+        timestamp: new Date(),
+        conversationId: activeConversationId,
+        groupId: activeGroupId!,
+        messageId: messageId,
+        sourceIds: currentMessage?.sourceIds || []
+      };
+      const libId = await db.addSavedItem(libraryItem);
+      setLibraryItems(prev => [...prev, { ...libraryItem, id: libId }].sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime()));
+
       updateMindMapState({ 
         mindMap: { 
+          title: title,
           isVisible: true, 
           isLoading: false, 
           error: null, 
           nodes: nodes, 
           edges: edges,
+          isArchived: true, // Marca como arquivado para esconder o botão
           expandedNodeIds: rootNode ? [rootNode.id] : [], // Inicia com o nó raiz expandido
           nodePositions: {}, // Inicia sem posições manuais
         } 

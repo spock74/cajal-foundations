@@ -4,26 +4,28 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { ChatMessage, MessageSender } from '../types'; 
+import { ChatMessage, MessageSender, KnowledgeSource } from '../types'; 
 import MessageItem from './MessageItem';
 import ThemeSwitcher from './ThemeSwitcher';
 import { Send, Menu } from 'lucide-react';
 
 interface ChatInterfaceProps {
+  activeSources: KnowledgeSource[];
   messages: ChatMessage[];
   conversationTitle: string;
-  onSendMessage: (query: string) => void;
+  onSendMessage: (query: string, sourceIds: string[]) => void;
   isLoading: boolean;
   placeholderText?: string;
   onToggleSidebar?: () => void;
   onToggleMindMap?: (messageId: string, text: string) => void;
   onMindMapLayoutChange?: (messageId: string, layout: { expandedNodeIds?: string[], nodePositions?: { [nodeId: string]: { x: number, y: number } } }) => void;
-  onSaveToLibrary?: (content: string) => void;
+  onSaveToLibrary?: (message: ChatMessage) => void;
   theme: 'light' | 'dark';
   setTheme: (theme: 'light' | 'dark') => void;
 }
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({ 
+  activeSources,
   messages, 
   conversationTitle,
   onSendMessage, 
@@ -47,7 +49,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   const handleSend = () => {
     if (userQuery.trim() && !isLoading) {
-      onSendMessage(userQuery.trim());
+      const selectedSourceIds = activeSources.filter(s => s.selected).map(s => s.id);
+      onSendMessage(userQuery.trim(), selectedSourceIds);
       setUserQuery('');
     }
   };
@@ -92,7 +95,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             value={userQuery}
             onChange={(e) => setUserQuery(e.target.value)}
             placeholder={placeholderText || "Comece uma nova conversa..."}
-            className="flex-grow h-10 min-h-[40px] py-2 px-3 border-none bg-black/5 dark:bg-white/5 text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-500 rounded-xl focus:ring-2 focus:ring-blue-500/50 outline-none transition-shadow resize-none text-sm"
+            className="flex-grow h-10 min-h-[40px] py-2 px-3 border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-500 rounded-xl focus:ring-2 focus:ring-blue-500/50 outline-none transition-shadow resize-none text-sm"
             rows={1}
             disabled={isLoading}
             onKeyPress={(e) => {

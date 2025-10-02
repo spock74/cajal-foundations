@@ -24,7 +24,7 @@ interface MessageItemProps {
   message: ChatMessage;
   onToggleMindMap?: (messageId: string, text: string) => void;
   onMindMapLayoutChange?: (messageId: string, layout: { expandedNodeIds?: string[], nodePositions?: { [nodeId: string]: { x: number, y: number } } }) => void;
-  onSaveToLibrary?: (content: string) => void;
+  onSaveToLibrary?: (message: ChatMessage) => void;
 }
 
 const SenderAvatar: React.FC<{ sender: MessageSender }> = ({ sender }) => {
@@ -161,7 +161,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onToggleMindMap, onM
                     ? <Check size={14} className="text-green-500" /> 
                     : <Copy size={14} />}
                 </button>
-                {onToggleMindMap && (
+                {onToggleMindMap && !message.mindMap?.isArchived && (
                   <button
                     onClick={() => onToggleMindMap(message.id, message.text)}
                     className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-md transition-colors ${message.mindMap?.isVisible ? 'bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-300' : 'bg-transparent text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/5'}`}
@@ -172,7 +172,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onToggleMindMap, onM
                 )}
                 {onSaveToLibrary && (
                    <button
-                    onClick={() => onSaveToLibrary(message.text)}
+                    onClick={() => onSaveToLibrary(message)}
                     className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-md transition-colors bg-transparent text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/5"
                     title="Salvar na Biblioteca"
                   >
