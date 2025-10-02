@@ -1,7 +1,7 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
-*/
+ * @author José E. Moraes
+ * @copyright 2025 - Todos os direitos reservados
+ */
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import ReactFlow, {

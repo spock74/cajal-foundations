@@ -1,7 +1,7 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
-*/
+ * @author José E. Moraes
+ * @copyright 2025 - Todos os direitos reservados
+ */
 
 import React, { useState, useRef, useEffect } from 'react';
 import { ChatMessage, MessageSender } from '../types'; 
@@ -14,9 +14,6 @@ interface ChatInterfaceProps {
   onSendMessage: (query: string) => void;
   isLoading: boolean;
   placeholderText?: string;
-  initialQuerySuggestions?: string[];
-  onSuggestedQueryClick?: (query: string) => void;
-  isFetchingSuggestions?: boolean;
   onToggleSidebar?: () => void;
   onGenerateMindMap?: (text: string) => void;
   onSaveToLibrary?: (content: string) => void;
@@ -29,9 +26,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   onSendMessage, 
   isLoading, 
   placeholderText,
-  initialQuerySuggestions,
-  onSuggestedQueryClick,
-  isFetchingSuggestions,
   onToggleSidebar,
   onGenerateMindMap,
   onSaveToLibrary,
@@ -53,8 +47,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       setUserQuery('');
     }
   };
-
-  const showSuggestions = initialQuerySuggestions && initialQuerySuggestions.length > 0 && messages.filter(m => m.sender !== MessageSender.SYSTEM).length <= 1;
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-[#1E1E1E] rounded-xl shadow-lg border border-gray-200 dark:border-[rgba(255,255,255,0.05)] transition-colors duration-200">
@@ -80,39 +72,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       </div>
 
       <div className="flex-grow p-4 overflow-y-auto chat-container bg-gray-50 dark:bg-[#282828]">
-        {/* New wrapper for max-width and centering */}
         <div className="max-w-4xl mx-auto w-full">
           {messages.map((msg) => (
             <MessageItem key={msg.id} message={msg} onGenerateMindMap={onGenerateMindMap} onSaveToLibrary={onSaveToLibrary} />
           ))}
-          
-          {isFetchingSuggestions && (
-              <div className="flex justify-center items-center p-3">
-                  <div className="flex items-center space-x-1.5 text-gray-500 dark:text-[#A8ABB4]">
-                      <div className="w-1.5 h-1.5 bg-current rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                      <div className="w-1.5 h-1.5 bg-current rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                      <div className="w-1.5 h-1.5 bg-current rounded-full animate-bounce"></div>
-                      <span className="text-sm">Buscando sugestões...</span>
-                  </div>
-              </div>
-          )}
-
-          {showSuggestions && onSuggestedQueryClick && (
-            <div className="my-3 px-1">
-              <p className="text-xs text-gray-500 dark:text-[#A8ABB4] mb-1.5 font-medium">Ou tente uma destas: </p>
-              <div className="flex flex-wrap gap-1.5">
-                {initialQuerySuggestions.map((suggestion, index) => (
-                  <button
-                    key={index}
-                    onClick={() => onSuggestedQueryClick(suggestion)}
-                    className="bg-blue-500/10 text-blue-600 dark:bg-[#79B8FF]/10 dark:text-[#79B8FF] px-2.5 py-1 rounded-full text-xs hover:bg-blue-500/20 dark:hover:bg-[#79B8FF]/20 transition-colors shadow-sm"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
           <div ref={messagesEndRef} />
         </div>
       </div>
@@ -125,7 +88,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             placeholder="Pergunte sobre os documentos..."
             className="flex-grow h-8 min-h-[32px] py-1.5 px-2.5 border border-gray-300 dark:border-[rgba(255,255,255,0.1)] bg-gray-100 dark:bg-[#2C2C2C] text-gray-800 dark:text-[#E2E2E2] placeholder-gray-400 dark:placeholder-[#777777] rounded-lg focus:ring-1 focus:ring-blue-500 dark:focus:ring-white/20 focus:border-blue-500 dark:focus:border-white/20 transition-shadow resize-none text-sm"
             rows={1}
-            disabled={isLoading || isFetchingSuggestions}
+            disabled={isLoading}
             onKeyPress={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -135,11 +98,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           />
           <button
             onClick={handleSend}
-            disabled={isLoading || isFetchingSuggestions || !userQuery.trim()}
+            disabled={isLoading || !userQuery.trim()}
             className="h-8 w-8 p-1.5 bg-gray-800 hover:bg-black dark:bg-white/[.12] dark:hover:bg-white/20 text-white rounded-lg transition-colors disabled:bg-gray-300 dark:disabled:bg-[#4A4A4A] disabled:text-gray-500 dark:disabled:text-[#777777] flex items-center justify-center flex-shrink-0"
             aria-label="Enviar mensagem"
           >
-            {(isLoading && messages[messages.length-1]?.isLoading && messages[messages.length-1]?.sender === MessageSender.MODEL) ? 
+            {(isLoading && messages.length > 0 && messages[messages.length-1]?.isLoading && messages[messages.length-1]?.sender === MessageSender.MODEL) ? 
               <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div> 
               : <Send size={16} />
             }
