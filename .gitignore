@@ -7,14 +7,40 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
+# Dependency directories
+node_modules/
+jspm_packages/
+/functions/node_modules
+
+# Vite build output
 dist
 dist-ssr
-*.local
+.output
+/functions/lib
+
+# Firebase
+.firebase
+firebase-debug.log*
+firebase-debug.*.log*
+*.emulators.export
+.firebaserc
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+.env.test
+
+# Sass cache
+.sass-cache
+.scss-cache
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
+!.vscode/settings.json
 .idea
 .DS_Store
 *.suo
@@ -22,3 +48,17 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Test runner cache
+.nyc_output
+.vitest-result.json
+coverage/
+
+# TypeScript
+*.tsbuildinfo
+
+# Misc
+.npm
+.eslintcache
+*.tgz
+*.zip
