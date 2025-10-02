@@ -101,11 +101,11 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onToggleMindMap, onM
   let bubbleClasses = "p-3 rounded-lg shadow w-full ";
 
   if (isUser) {
-    bubbleClasses += "bg-gray-800 text-white dark:bg-white/[.12] rounded-br-none";
+    bubbleClasses += "bg-gradient-to-br from-blue-600 to-blue-800 text-white rounded-br-none";
   } else if (isModel) {
-    bubbleClasses += `bg-white dark:bg-[rgba(119,119,119,0.10)] border border-gray-100 dark:border-t dark:border-[rgba(255,255,255,0.04)] dark:backdrop-blur-lg rounded-bl-none`;
+    bubbleClasses += `bg-white/80 dark:bg-gray-800/50 border border-black/5 dark:border-white/10 rounded-bl-none`;
   } else { // System message
-    bubbleClasses += "bg-gray-200 dark:bg-[#2C2C2C] text-gray-600 dark:text-[#A8ABB4] rounded-bl-none";
+    bubbleClasses += "bg-transparent text-gray-500 dark:text-gray-400 rounded-bl-none shadow-none";
   }
 
   return (
@@ -124,7 +124,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onToggleMindMap, onM
           )}
           
           {(isModel && !message.isLoading && message.text) && (
-            <div className="mt-2.5 pt-2.5 border-t border-gray-200 dark:border-[rgba(255,255,255,0.1)] flex items-center justify-between gap-2">
+            <div className="mt-2.5 pt-2.5 border-t border-black/5 dark:border-white/10 flex items-center justify-between gap-2">
               {message.urlContext && message.urlContext.length > 0 ? (
                 <div>
                   <h4 className="text-xs font-semibold text-gray-500 dark:text-[#A8ABB4] mb-1">URLs de Contexto Recuperadas:</h4>
@@ -154,7 +154,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onToggleMindMap, onM
               <div className="flex items-center gap-1 self-end flex-shrink-0">
                 <button
                   onClick={handleCopy}
-                  className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-md transition-colors bg-gray-100 text-gray-500 dark:text-[#A8ABB4] dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 hover:text-black dark:hover:text-white"
+                  className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-md transition-colors bg-transparent text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/5"
                   title="Copiar para a área de transferência"
                 >
                   {isCopied 
@@ -164,7 +164,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onToggleMindMap, onM
                 {onToggleMindMap && (
                   <button
                     onClick={() => onToggleMindMap(message.id, message.text)}
-                    className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-md transition-colors ${message.mindMap?.isVisible ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300' : 'bg-gray-100 text-gray-500 dark:text-[#A8ABB4] dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 hover:text-black dark:hover:text-white'}`}
+                    className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-md transition-colors ${message.mindMap?.isVisible ? 'bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-300' : 'bg-transparent text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/5'}`}
                     title="Visualizar como um Mapa Mental"
                   >
                     <BrainCircuit size={14} />
@@ -173,7 +173,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onToggleMindMap, onM
                 {onSaveToLibrary && (
                    <button
                     onClick={() => onSaveToLibrary(message.text)}
-                    className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-[#A8ABB4] hover:text-black dark:hover:text-white bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 px-2 py-1 rounded-md transition-colors"
+                    className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-md transition-colors bg-transparent text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/5"
                     title="Salvar na Biblioteca"
                   >
                     <Bookmark size={14} />

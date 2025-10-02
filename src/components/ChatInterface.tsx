@@ -53,7 +53,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-[#1E1E1E] rounded-xl shadow-lg border border-gray-200 dark:border-[rgba(255,255,255,0.05)] transition-colors duration-200">
+    // Efeito de vidro fosco para o painel de chat
+    <div className="flex flex-col h-full bg-white/50 dark:bg-gray-900/50 backdrop-blur-2xl rounded-2xl border border-black/5 dark:border-white/5 transition-colors duration-200">
       <div className="p-4 border-b border-gray-200 dark:border-[rgba(255,255,255,0.05)] flex justify-between items-center">
         <div className="flex items-center gap-3">
            {onToggleSidebar && (
@@ -75,7 +76,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         <ThemeSwitcher theme={theme} setTheme={setTheme} />
       </div>
 
-      <div className="flex-grow p-4 overflow-y-auto chat-container bg-gray-50 dark:bg-[#282828]">
+      {/* O fundo do chat agora é transparente para mostrar o gradiente principal */}
+      <div className="flex-grow p-4 overflow-y-auto chat-container">
         <div className="max-w-4xl mx-auto w-full">
           {messages.map((msg) => (
             <MessageItem key={msg.id} message={msg} onToggleMindMap={onToggleMindMap} onMindMapLayoutChange={onMindMapLayoutChange} onSaveToLibrary={onSaveToLibrary} />
@@ -84,13 +86,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         </div>
       </div>
 
-      <div className="p-4 border-t border-gray-200 dark:border-[rgba(255,255,255,0.05)] bg-white dark:bg-[#1E1E1E] rounded-b-xl">
+      <div className="p-4 border-t border-black/5 dark:border-white/5 bg-transparent rounded-b-2xl">
         <div className="flex items-center gap-2">
           <textarea
             value={userQuery}
             onChange={(e) => setUserQuery(e.target.value)}
             placeholder={placeholderText || "Comece uma nova conversa..."}
-            className="flex-grow h-8 min-h-[32px] py-1.5 px-2.5 border border-gray-300 dark:border-[rgba(255,255,255,0.1)] bg-gray-100 dark:bg-[#2C2C2C] text-gray-800 dark:text-[#E2E2E2] placeholder-gray-400 dark:placeholder-[#777777] rounded-lg focus:ring-1 focus:ring-blue-500 dark:focus:ring-white/20 focus:border-blue-500 dark:focus:border-white/20 transition-shadow resize-none text-sm"
+            className="flex-grow h-10 min-h-[40px] py-2 px-3 border-none bg-black/5 dark:bg-white/5 text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-500 rounded-xl focus:ring-2 focus:ring-blue-500/50 outline-none transition-shadow resize-none text-sm"
             rows={1}
             disabled={isLoading}
             onKeyPress={(e) => {
@@ -103,7 +105,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           <button
             onClick={handleSend}
             disabled={isLoading || !userQuery.trim()}
-            className="h-8 w-8 p-1.5 bg-gray-800 hover:bg-black dark:bg-white/[.12] dark:hover:bg-white/20 text-white rounded-lg transition-colors disabled:bg-gray-300 dark:disabled:bg-[#4A4A4A] disabled:text-gray-500 dark:disabled:text-[#777777] flex items-center justify-center flex-shrink-0"
+            className="h-10 w-10 p-2 bg-gray-800 hover:bg-black dark:bg-white/10 dark:hover:bg-white/20 text-white rounded-xl transition-colors disabled:bg-gray-300 dark:disabled:bg-white/5 disabled:text-gray-500 dark:disabled:text-gray-600 flex items-center justify-center flex-shrink-0"
             aria-label="Enviar mensagem"
           >
             {(isLoading && messages.length > 0 && messages[messages.length-1]?.isLoading && messages[messages.length-1]?.sender === MessageSender.MODEL) ? 

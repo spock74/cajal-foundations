@@ -5,7 +5,14 @@
 
 import React, { useState } from 'react';
 import { Conversation, KnowledgeSource, KnowledgeGroup } from '../types';
-import { Plus, Trash2, MessageSquare, X, ChevronDown, Settings } from 'lucide-react';
+import { Plus, Trash2, MessageSquare, X, Settings, ChevronDown } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import KnowledgeBaseManager from './KnowledgeBaseManager';
 
 interface ConversationManagerProps {
@@ -61,7 +68,8 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-[#1E1E1E] rounded-xl shadow-lg border border-gray-200 dark:border-[rgba(255,255,255,0.05)]">
+    // Efeito de vidro fosco para o painel
+    <div className="flex flex-col h-full bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl rounded-2xl border border-black/5 dark:border-white/5">
       <div className="p-4 border-b border-gray-200 dark:border-[rgba(255,255,255,0.05)] flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-800 dark:text-[#E2E2E2]">Conversas</h2>
         <div className="flex items-center gap-2">
@@ -111,12 +119,16 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
             <button onClick={() => setIsCreatingGroup(false)} className="px-2.5 py-1 text-xs text-gray-600 rounded-md">X</button>
           </div>
         ) : (
-          <div className="relative w-full">
-            <select id="group-select" value={activeGroupId || ''} onChange={(e) => onSetGroupId(e.target.value)} className="w-full py-2 pl-3 pr-8 text-sm bg-gray-100 dark:bg-[#2C2C2C] border border-gray-300 dark:border-[rgba(255,255,255,0.1)] rounded-lg appearance-none">
-              {groups.map(group => <option key={group.id} value={group.id}>{group.name}</option>)}
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-          </div>
+          <Select value={activeGroupId || ''} onValueChange={onSetGroupId}>
+            <SelectTrigger className="w-full h-9 text-sm bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10">
+              <SelectValue placeholder="Selecione um tópico..." />
+            </SelectTrigger>
+            <SelectContent container={document.body}>
+              {groups.map(group => (
+                <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         )}
       </div>
 
@@ -126,7 +138,7 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
             <li key={convo.id} className="flex items-center justify-between group rounded-md transition-colors hover:bg-gray-100 dark:hover:bg-white/5">
               <button
                 onClick={() => onSetConversationId(convo.id)}
-                className={`flex-grow flex items-center gap-2 p-2 text-sm text-left transition-colors rounded-md ${
+                className={`flex-grow flex items-center gap-3 p-2 text-sm text-left transition-colors rounded-md ${
                   activeConversationId === convo.id
                     ? 'bg-gray-800 text-white dark:bg-white/20'
                     : 'text-gray-700 dark:text-gray-300'

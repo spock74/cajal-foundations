@@ -31,7 +31,8 @@ const LibraryPanel: React.FC<LibraryPanelProps> = ({ items, onDeleteItem }) => {
   );
 
   return (
-    <div className="p-4 bg-white dark:bg-[#1E1E1E] shadow-lg rounded-xl h-full flex flex-col border border-gray-200 dark:border-[rgba(255,255,255,0.05)] transition-colors duration-200">
+    // Efeito de vidro fosco para o painel
+    <div className="p-4 bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl rounded-2xl h-full flex flex-col border border-black/5 dark:border-white/5 transition-colors duration-200">
       <h2 className="text-xl font-semibold text-gray-800 dark:text-[#E2E2E2] mb-3">Biblioteca</h2>
       
       {/* Search Input */}
