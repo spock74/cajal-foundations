@@ -20,6 +20,8 @@ export interface MindMapData {
   isLoading: boolean;
   error: string | null;
   isVisible: boolean;
+  expandedNodeIds?: string[];
+  nodePositions?: { [nodeId: string]: { x: number; y: number } };
 }
 
 export interface Conversation {

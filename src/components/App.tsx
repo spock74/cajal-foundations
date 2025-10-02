@@ -18,8 +18,8 @@ const App: React.FC = () => {
     libraryItems, handleDeleteLibraryItem, handleSaveToLibrary,
     theme, setTheme,
     isSidebarOpen, setIsSidebarOpen,
-    chatPlaceholder, activeConversationName,
-    handleGenerateMindMap
+    chatPlaceholder, activeConversationName, handleGenerateMindMap,
+    handleMindMapLayoutChange
   } = useAppContext();
 
   return (
@@ -59,6 +59,7 @@ const App: React.FC = () => {
               placeholderText={chatPlaceholder}
               onToggleSidebar={() => setIsSidebarOpen(true)}
               onToggleMindMap={handleGenerateMindMap}
+              onMindMapLayoutChange={handleMindMapLayoutChange}
               onSaveToLibrary={handleSaveToLibrary}
               theme={theme}
               setTheme={setTheme}

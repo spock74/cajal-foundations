@@ -17,6 +17,7 @@ interface ChatInterfaceProps {
   placeholderText?: string;
   onToggleSidebar?: () => void;
   onToggleMindMap?: (messageId: string, text: string) => void;
+  onMindMapLayoutChange?: (messageId: string, layout: { expandedNodeIds?: string[], nodePositions?: { [nodeId: string]: { x: number, y: number } } }) => void;
   onSaveToLibrary?: (content: string) => void;
   theme: 'light' | 'dark';
   setTheme: (theme: 'light' | 'dark') => void;
@@ -30,6 +31,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   placeholderText,
   onToggleSidebar,
   onToggleMindMap,
+  onMindMapLayoutChange,
   onSaveToLibrary,
   theme,
   setTheme
@@ -76,7 +78,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       <div className="flex-grow p-4 overflow-y-auto chat-container bg-gray-50 dark:bg-[#282828]">
         <div className="max-w-4xl mx-auto w-full">
           {messages.map((msg) => (
-            <MessageItem key={msg.id} message={msg} onToggleMindMap={onToggleMindMap} onSaveToLibrary={onSaveToLibrary} />
+            <MessageItem key={msg.id} message={msg} onToggleMindMap={onToggleMindMap} onMindMapLayoutChange={onMindMapLayoutChange} onSaveToLibrary={onSaveToLibrary} />
           ))}
           <div ref={messagesEndRef} />
         </div>

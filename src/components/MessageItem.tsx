@@ -23,6 +23,7 @@ marked.use(markedHighlight({
 interface MessageItemProps {
   message: ChatMessage;
   onToggleMindMap?: (messageId: string, text: string) => void;
+  onMindMapLayoutChange?: (messageId: string, layout: { expandedNodeIds?: string[], nodePositions?: { [nodeId: string]: { x: number, y: number } } }) => void;
   onSaveToLibrary?: (content: string) => void;
 }
 
@@ -63,7 +64,7 @@ const getStatusText = (status: string | undefined): string => {
   }
 };
 
-const MessageItem: React.FC<MessageItemProps> = ({ message, onToggleMindMap, onSaveToLibrary }) => {
+const MessageItem: React.FC<MessageItemProps> = ({ message, onToggleMindMap, onMindMapLayoutChange, onSaveToLibrary }) => {
   const isUser = message.sender === MessageSender.USER;
   const isModel = message.sender === MessageSender.MODEL;
   const isSystem = message.sender === MessageSender.SYSTEM;
@@ -188,6 +189,9 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onToggleMindMap, onS
             error={message.mindMap.error}
             nodes={message.mindMap.nodes}
             edges={message.mindMap.edges}
+            expandedNodeIds={message.mindMap.expandedNodeIds}
+            nodePositions={message.mindMap.nodePositions}
+            onLayoutChange={(layout) => onMindMapLayoutChange && onMindMapLayoutChange(message.id, layout)}
           />
         )}
         {isUser && <SenderAvatar sender={message.sender} />}

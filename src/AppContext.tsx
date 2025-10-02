@@ -50,6 +50,7 @@ interface AppContextActions {
   handleDeleteLibraryItem: (id: number) => Promise<void>;
   handleSendMessage: (query: string) => Promise<void>;
   handleGenerateMindMap: (messageId: string, text: string) => Promise<void>;
+  handleMindMapLayoutChange: (messageId: string, layout: { expandedNodeIds?: string[], nodePositions?: { [nodeId: string]: { x: number, y: number } } }) => void;
 }
 
 type AppContextType = AppContextState & AppContextActions;
@@ -248,10 +249,32 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       const { nodes, edges } = await geminiService.generateMindMapFromText(text);
       if (nodes.length === 0) throw new Error("Não foi possível extrair conceitos para o mapa mental.");
-      updateMindMapState({ mindMap: { isVisible: true, isLoading: false, error: null, nodes: nodes, edges: edges } });
+      const rootNode = nodes.find(n => !edges.some(e => e.target === n.id)) || nodes[0];
+      updateMindMapState({ 
+        mindMap: { 
+          isVisible: true, 
+          isLoading: false, 
+          error: null, 
+          nodes: nodes, 
+          edges: edges,
+          expandedNodeIds: rootNode ? [rootNode.id] : [], // Inicia com o nó raiz expandido
+          nodePositions: {}, // Inicia sem posições manuais
+        } 
+      });
     } catch (e: any) {
       updateMindMapState({ mindMap: { isVisible: true, isLoading: false, error: e.message, nodes: [], edges: [] } });
     }
+  };
+
+  const handleMindMapLayoutChange = (messageId: string, layout: { expandedNodeIds?: string[], nodePositions?: { [nodeId: string]: { x: number, y: number } } }) => {
+    setChatMessages(prev => prev.map(msg => {
+      if (msg.id === messageId && msg.mindMap) {
+        const updatedMindMap = { ...msg.mindMap, ...layout };
+        db.updateChatMessage(messageId, { mindMap: updatedMindMap });
+        return { ...msg, mindMap: updatedMindMap };
+      }
+      return msg;
+    }));
   };
 
   const chatPlaceholder = sourcesForActiveGroup.filter(s => s.selected).length > 0
@@ -263,7 +286,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const value = {
     conversations, groups, activeGroupId, activeConversationId, isSidebarOpen, chatMessages, isLoading, libraryItems, allKnowledgeSources, theme, activeGroup, sourcesForActiveGroup, chatPlaceholder, activeConversationName,
-    setTheme, setIsSidebarOpen, handleSetGroup, handleAddGroup, handleSetConversation, handleNewConversation, handleDeleteConversation, handleClearAllConversations, handleUrlAdd, handleFileAdd, handleRemoveSource, handleToggleSourceSelection, handleSaveToLibrary, handleDeleteLibraryItem, handleSendMessage, handleGenerateMindMap
+    setTheme, setIsSidebarOpen, handleSetGroup, handleAddGroup, handleSetConversation, handleNewConversation, handleDeleteConversation, handleClearAllConversations, handleUrlAdd, handleFileAdd, handleRemoveSource, handleToggleSourceSelection, handleSaveToLibrary, handleDeleteLibraryItem, handleSendMessage, handleGenerateMindMap, handleMindMapLayoutChange
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

@@ -1,6 +1,6 @@
 /**
  * @author José E. Moraes
- * @copyright 2025 - Todos os direitos reservados.
+ * @copyright 2025 - Todos os direitos reservados
  */
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -11,6 +11,9 @@ import ReactFlow, {
   Handle,
   Position,
   ReactFlowProvider,
+  applyNodeChanges,
+  useNodesState,
+  useEdgesState,
   useReactFlow,
 } from 'reactflow';
 import dagre from 'dagre'; 
@@ -21,6 +24,9 @@ interface MindMapDisplayProps {
   error: string | null;
   nodes: any[];
   edges: any[];
+  expandedNodeIds?: string[];
+  nodePositions?: { [nodeId: string]: { x: number; y: number } };
+  onLayoutChange: (layout: { expandedNodeIds?: string[], nodePositions?: { [nodeId: string]: { x: number, y: number } } }) => void;
 }
 
 const dagreGraph = new dagre.graphlib.Graph();
@@ -30,7 +36,7 @@ const getLayoutedElements = (nodes: any[], edges: any[], direction = 'LR') => {
   dagreGraph.setGraph({
     rankdir: direction,
     ranksep: 100,
-    nodesep: 30, // Aumenta a separação vertical entre nós no mesmo nível
+    nodesep: 50, // Aumenta a separação vertical entre nós no mesmo nível
   });
 
   nodes.forEach((node) => {
@@ -52,27 +58,6 @@ const getLayoutedElements = (nodes: any[], edges: any[], direction = 'LR') => {
       y: nodeWithPosition.y - node.height / 2,
     };
     return node;
-  });
-
-  // Etapa extra para centralizar os filhos verticalmente em relação ao pai.
-  const childrenMap = new Map<string, string[]>();
-  edges.forEach(edge => {
-    if (!childrenMap.has(edge.source)) childrenMap.set(edge.source, []);
-    childrenMap.get(edge.source)!.push(edge.target);
-  });
-
-  nodes.forEach(parent => {
-    const childIds = childrenMap.get(parent.id);
-    if (childIds && childIds.length > 1) {
-      const childNodes = childIds.map(id => nodes.find(n => n.id === id)).filter(n => n);
-      const totalChildHeight = childNodes.reduce((sum, n) => sum + n.height + 30, 0) - 30; // 30 é o nodesep
-      const firstChildY = parent.position.y - totalChildHeight / 2 + parent.height / 2;
-      let currentY = firstChildY;
-      childNodes.forEach(child => {
-        child.position.y = currentY;
-        currentY += child.height + 30;
-      });
-    }
   });
 
   return { nodes, edges };
@@ -114,11 +99,13 @@ const MindMapDisplay: React.FC<MindMapDisplayProps> = ({
   error,
   nodes: rawNodes,
   edges: rawEdges,
+  expandedNodeIds = [],
+  nodePositions = {},
+  onLayoutChange,
 }) => {
-  const [nodes, setNodes] = useState([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [expandedNodes, setExpandedNodes] = useState(new Set<string>());
-  const [edges, setEdges] = useState([]);
   const { fitView } = useReactFlow();
   
   // 1. Calcula a hierarquia (mapa de filhos) e encontra o nó raiz.
@@ -135,15 +122,6 @@ const MindMapDisplay: React.FC<MindMapDisplayProps> = ({
     return { childrenMap, rootNode: root };
   }, [rawNodes, rawEdges]);
 
-  // 2. Inicializa o estado de expansão quando os dados mudam, mostrando apenas o 1º nível.
-  useEffect(() => {
-    if (rootNode) {
-      setExpandedNodes(new Set([rootNode.id]));
-    } else {
-      setExpandedNodes(new Set());
-    }
-  }, [rootNode]);
-
   // Efeito para reajustar a visão ao redimensionar a janela.
   useEffect(() => {
     const handleResize = () => {
@@ -154,24 +132,24 @@ const MindMapDisplay: React.FC<MindMapDisplayProps> = ({
   }, [fitView]);
 
   const handleToggleNode = useCallback((nodeId: string) => {
-    setExpandedNodes(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(nodeId)) {
-        newSet.delete(nodeId);
-      } else {
-        newSet.add(nodeId);
-      }
-      return newSet;
-    });
-  }, []);
+    const newExpandedSet = new Set(expandedNodeIds);
+    if (newExpandedSet.has(nodeId)) {
+      newExpandedSet.delete(nodeId);
+    } else {
+      newExpandedSet.add(nodeId);
+    }
+    onLayoutChange({ expandedNodeIds: Array.from(newExpandedSet) });
+  }, [expandedNodeIds, onLayoutChange]);
   
   // 3. Efeito principal que calcula os nós e arestas visíveis e o layout.
   useEffect(() => {
-    if (!rootNode || !rawNodes) {
+    if (!rootNode) {
       setNodes([]);
       setEdges([]);
       return;
     }
+
+    const expandedSet = new Set(expandedNodeIds);
 
     // Lógica para determinar quais nós são visíveis com base no estado de expansão.
     const visibleNodes: any[] = [];
@@ -182,7 +160,7 @@ const MindMapDisplay: React.FC<MindMapDisplayProps> = ({
       const { node: currentNode, depth } = q.shift()!;
       visibleNodes.push({ ...currentNode, depth });
 
-      if (expandedNodes.has(currentNode.id)) {
+      if (expandedSet.has(currentNode.id)) {
         const children = childrenMap.get(currentNode.id) || [];
         children.forEach(childId => {
           if (!visited.has(childId)) {
@@ -210,7 +188,7 @@ const MindMapDisplay: React.FC<MindMapDisplayProps> = ({
       data: {
         ...node.data,
         label: node.label || node.data.label,
-        isExpanded: expandedNodes.has(node.id),
+        isExpanded: expandedSet.has(node.id),
         hasChildren: (childrenMap.get(node.id) || []).length > 0,
         onToggle: () => handleToggleNode(node.id),
         depth: node.depth,
@@ -219,9 +197,14 @@ const MindMapDisplay: React.FC<MindMapDisplayProps> = ({
     
     const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(augmentedNodes, visibleEdges);
     
-    setNodes(layoutedNodes);
+    // Aplica posições salvas sobre as posições calculadas pelo layout.
+    const finalNodes = layoutedNodes.map(node => ({
+      ...node,
+      position: nodePositions[node.id] || node.position,
+    }));
+    setNodes(finalNodes);
 
-    const edgeColor = '#A8ABB4';
+    const edgeColor = '#A8ABB4'; // Mantido para consistência
     setEdges(layoutedEdges.map((edge: any) => ({
       ...edge,
       type: 'default', // Curvas de Bézier, mais suaves.
@@ -235,7 +218,21 @@ const MindMapDisplay: React.FC<MindMapDisplayProps> = ({
 
     setTimeout(() => fitView({ duration: 400 }), 50);
 
-  }, [rootNode, rawNodes, rawEdges, childrenMap, expandedNodes, handleToggleNode, fitView]);
+  }, [rootNode, rawNodes, rawEdges, childrenMap, expandedNodeIds, handleToggleNode, fitView, setNodes, setEdges, nodePositions]);
+
+  const handleNodesChange = useCallback((changes) => {
+    onNodesChange(changes);
+    
+    const newPositions = { ...nodePositions };
+    let hasPositionChanged = false;
+    changes.forEach(change => {
+      if (change.type === 'position' && change.dragging === false) {
+        newPositions[change.id] = { x: change.position.x, y: change.position.y };
+        hasPositionChanged = true;
+      }
+    });
+    if (hasPositionChanged) onLayoutChange({ nodePositions: newPositions });
+  }, [onNodesChange, nodePositions, onLayoutChange]);
 
   const containerClasses = isExpanded
     ? "fixed inset-0 z-50 bg-white/95 dark:bg-[#1E1E1E]/95 backdrop-blur-sm p-4 flex flex-col"
@@ -271,7 +268,9 @@ const MindMapDisplay: React.FC<MindMapDisplayProps> = ({
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
-          fitView
+          onNodesChange={handleNodesChange}
+          onEdgesChange={onEdgesChange}
+          fitView={true}
           nodesDraggable={true} // Arrastar e soltar agora funciona como esperado.
           nodesConnectable={false}
           proOptions={{ hideAttribution: true }}
