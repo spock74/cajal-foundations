@@ -3,12 +3,13 @@
  * @copyright 2025 - Todos os direitos reservados
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { marked } from 'marked';
 import { markedHighlight } from "marked-highlight";
 import hljs from 'highlight.js';
+import MindMapWrapper from './MindMapDisplay';
 import { ChatMessage, MessageSender } from '../types';
-import { BrainCircuit, Bookmark } from 'lucide-react';
+import { BrainCircuit, Bookmark, Copy, Check } from 'lucide-react';
 
 // Configure marked to use highlight.js for syntax highlighting
 marked.use(markedHighlight({
@@ -21,7 +22,7 @@ marked.use(markedHighlight({
 
 interface MessageItemProps {
   message: ChatMessage;
-  onGenerateMindMap?: (text: string) => void;
+  onToggleMindMap?: (messageId: string, text: string) => void;
   onSaveToLibrary?: (content: string) => void;
 }
 
@@ -62,10 +63,11 @@ const getStatusText = (status: string | undefined): string => {
   }
 };
 
-const MessageItem: React.FC<MessageItemProps> = ({ message, onGenerateMindMap, onSaveToLibrary }) => {
+const MessageItem: React.FC<MessageItemProps> = ({ message, onToggleMindMap, onSaveToLibrary }) => {
   const isUser = message.sender === MessageSender.USER;
   const isModel = message.sender === MessageSender.MODEL;
   const isSystem = message.sender === MessageSender.SYSTEM;
+  const [isCopied, setIsCopied] = useState(false);
 
   const renderMessageContent = () => {
     if (isModel && !message.isLoading) {
@@ -85,6 +87,16 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onGenerateMindMap, o
     return <div className={`whitespace-pre-wrap text-sm ${textColorClass}`}>{message.text}</div>;
   };
   
+  const handleCopy = () => {
+    if (isCopied) return;
+    navigator.clipboard.writeText(message.text).then(() => {
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000); // O estado de "copiado" dura 2 segundos
+    }).catch(err => {
+      console.error('Falha ao copiar texto para a área de transferência:', err);
+    });
+  };
+
   let bubbleClasses = "p-3 rounded-lg shadow w-full ";
 
   if (isUser) {
@@ -97,7 +109,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onGenerateMindMap, o
 
   return (
     <div className={`flex mb-4 ${isUser ? 'justify-end' : 'justify-start'}`}>
-      <div className={`flex items-start gap-2 max-w-[85%]`}>
+      <div className={`flex flex-col items-start gap-2 max-w-[85%] ${isUser ? 'items-end' : 'items-start'}`}>
         {!isUser && <SenderAvatar sender={message.sender} />}
         <div className={bubbleClasses}>
           {message.isLoading ? (
@@ -139,10 +151,19 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onGenerateMindMap, o
                 </div>
               ) : <div className="flex-1" />}
               <div className="flex items-center gap-1 self-end flex-shrink-0">
-                {onGenerateMindMap && (
+                <button
+                  onClick={handleCopy}
+                  className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-md transition-colors bg-gray-100 text-gray-500 dark:text-[#A8ABB4] dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 hover:text-black dark:hover:text-white"
+                  title="Copiar para a área de transferência"
+                >
+                  {isCopied 
+                    ? <Check size={14} className="text-green-500" /> 
+                    : <Copy size={14} />}
+                </button>
+                {onToggleMindMap && (
                   <button
-                    onClick={() => onGenerateMindMap(message.text)}
-                    className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-[#A8ABB4] hover:text-black dark:hover:text-white bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 px-2 py-1 rounded-md transition-colors"
+                    onClick={() => onToggleMindMap(message.id, message.text)}
+                    className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-md transition-colors ${message.mindMap?.isVisible ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300' : 'bg-gray-100 text-gray-500 dark:text-[#A8ABB4] dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 hover:text-black dark:hover:text-white'}`}
                     title="Visualizar como um Mapa Mental"
                   >
                     <BrainCircuit size={14} />
@@ -161,6 +182,14 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onGenerateMindMap, o
             </div>
           )}
         </div>
+        {message.mindMap?.isVisible && (
+          <MindMapWrapper
+            isLoading={message.mindMap.isLoading}
+            error={message.mindMap.error}
+            nodes={message.mindMap.nodes}
+            edges={message.mindMap.edges}
+          />
+        )}
         {isUser && <SenderAvatar sender={message.sender} />}
       </div>
     </div>

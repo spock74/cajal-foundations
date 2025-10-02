@@ -9,6 +9,9 @@ import {
   HarmBlockThreshold,
   // CORREÇÃO: Removendo importações de tipos não públicos para o frontend.
   type SafetySetting,
+  type Content,
+  type Tool,
+  type GenerateContentResponse,
 } from "@google/genai";
 import type { UrlContextMetadataItem, KnowledgeSource } from '../types';
 
@@ -51,6 +54,18 @@ class GeminiService {
     return GeminiService.instance;
   }
 
+  /**
+   * Private helper to handle errors from the Gemini API.
+   * @param error The error object caught.
+   * @param context The name of the function where the error occurred.
+   * @returns A new Error object.
+   */
+  private handleError(error: unknown, context: string): Error {
+    console.error(`Erro no ${context}:`, error);
+    const message = error instanceof Error ? error.message : "Erro desconhecido";
+    return new Error(`Falha ao obter resposta da IA: ${message}`);
+  }
+
   // A SER INSERIDA EM geminiService.ts
 
 // A SER INSERIDA EM geminiService.ts
@@ -60,21 +75,24 @@ class GeminiService {
 public async generateContentWithSources(prompt: string, sources: KnowledgeSource[]): Promise<GeminiResponse> {
   // --- Bloco de construção do prompt (permanece o mesmo) ---
   const urls = sources.filter((s) => s.type === "url").map(s => s.value);
-  let contextText = "";
-  for (const source of sources) {
-    if (source.type === 'file') {
-      contextText += `Fonte (Arquivo: ${source.name}):\n---\n${source.content}\n---\n\n`;
-    }
-    // Adicionar lógica de URL aqui se necessário
-  }
+  
+  // Sugestão: Construção de contexto mais funcional e legível.
+  const contextText = sources
+    .filter((s): s is Extract<KnowledgeSource, { type: 'file' }> => s.type === 'file')
+    .map(source => `Fonte (Arquivo: ${source.name}):\n---\n${source.content}\n---\n\n`)
+    .join('');
+
   const fullPrompt = `Com base no contexto das fontes fornecidas abaixo, responda: "${prompt}"\n\n--- CONTEXTO ---\n${contextText}`;
-  const contents: any[] = [{ role: "user", parts: [{ text: fullPrompt }] }];
-  const tools: any[] = urls.length > 0 ? [{ googleSearch: {} }] : [];
+  
+  // Sugestão: Usar tipos importados para maior segurança.
+  const contents: Content[] = [{ role: "user", parts: [{ text: fullPrompt }] }];
+  const tools: Tool[] = urls.length > 0 ? [{ googleSearch: {} }] : [];
   // --- Fim do bloco de construção ---
 
   try {
-    const result = await this.genAI.models.generateContent({
-      model: MODEL_NAME,
+    // Sugestão: Tipar o resultado da chamada da API.
+    const result: GenerateContentResult = await this.genAI.models.generateContent({
+      model: MODEL_NAME, // Corrected type name
       contents: contents, // A variável 'contents' está definida aqui. (Corrige o erro 1)
       config: {
         tools: tools,
@@ -95,7 +113,8 @@ public async generateContentWithSources(prompt: string, sources: KnowledgeSource
 
     let extractedUrlContextMetadata: UrlContextMetadataItem[] | undefined = undefined;
     if (candidate?.urlContextMetadata?.urlMetadata) {
-      extractedUrlContextMetadata = candidate.urlContextMetadata.urlMetadata.map((meta: any) => ({
+      // Sugestão: Tipar o objeto 'meta' para maior clareza.
+      extractedUrlContextMetadata = candidate.urlContextMetadata.urlMetadata.map((meta: { retrievedUrl?: string, retrieved_url?: string, urlRetrievalStatus?: string, url_retrieval_status?: string }) => ({
         retrievedUrl: meta.retrievedUrl || meta.retrieved_url,
         urlRetrievalStatus: meta.urlRetrievalStatus || meta.url_retrieval_status,
       }));
@@ -103,8 +122,8 @@ public async generateContentWithSources(prompt: string, sources: KnowledgeSource
 
     return { text, urlContextMetadata: extractedUrlContextMetadata, usageMetadata };
   } catch (error) {
-    console.error("Erro no generateContentWithSources:", error);
-    throw new Error(`Falha ao obter resposta da IA: ${error instanceof Error ? error.message : "Erro desconhecido"}`);
+    // Sugestão: Usar o helper de erro centralizado.
+    throw this.handleError(error, 'generateContentWithSources');
   }
 }
 
@@ -163,7 +182,7 @@ public async generateContentWithSources(prompt: string, sources: KnowledgeSource
       
       return JSON.parse(result.text);
     } catch (error) {
-      console.error("Erro no getInitialSuggestions:", error);
+      this.handleError(error, 'getInitialSuggestions');
       return [];
     }
   }
@@ -171,10 +190,21 @@ public async generateContentWithSources(prompt: string, sources: KnowledgeSource
   public async generateMindMapFromText(textToAnalyze: string): Promise<{ nodes: any[], edges: any[] }> {
     const prompt = `Analise o texto: "${textToAnalyze}" e gere um mapa mental em JSON (nodes, edges)...`;
 
+    // Sugestão: Prompt mais detalhado para garantir um formato de saída consistente.
+    const structuredPrompt = `
+      Analise o texto a seguir e estruture as informações como um mapa mental.
+      Sua resposta DEVE ser um objeto JSON contendo duas chaves: "nodes" e "edges".
+      - "nodes": Um array de objetos, onde cada objeto tem "id" (string), "label" (string), e "type" (string, ex: 'main', 'subtopic').
+      - "edges": Um array de objetos, onde cada objeto tem "id" (string), "source" (o 'id' de um nó), e "target" (o 'id' de outro nó).
+      Texto para análise:
+      ---
+      ${textToAnalyze}
+      ---
+    `;
     try {
       const result = await this.genAI.models.generateContent({
         model: MODEL_NAME,
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        contents: [{ role: 'user', parts: [{ text: structuredPrompt }] }],
         config: {
           safetySettings: this.safetySettings,
           responseMimeType: "application/json",
@@ -185,8 +215,27 @@ public async generateContentWithSources(prompt: string, sources: KnowledgeSource
       if (!parsed.nodes || !parsed.edges) throw new Error("JSON do mapa mental inválido.");
       return { nodes: parsed.nodes, edges: parsed.edges };
     } catch (error) {
-      console.error("Erro no generateMindMapFromText:", error);
-      throw new Error("Falha ao gerar o mapa mental.");
+      throw this.handleError(error, 'generateMindMapFromText');
+    }
+  }
+
+  public async generateTitleForConversation(firstMessage: string): Promise<string> {
+    const prompt = `Gere um título curto e descritivo (máximo 5 palavras) para uma conversa que começa com a seguinte pergunta: "${firstMessage}". Responda apenas com o título.`;
+    try {
+      const result = await this.genAI.models.generateContent({
+        model: MODEL_NAME,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config: {
+          safetySettings: this.safetySettings,
+        },
+      });
+      // Limpa a resposta para garantir que seja apenas texto.
+      let title = result.text.trim().replace(/["*]/g, '');
+      if (title.length > 50) title = title.substring(0, 47) + '...';
+      return title;
+    } catch (error) {
+      console.error("Falha ao gerar título, usando fallback:", error);
+      return "Nova Conversa";
     }
   }
 }

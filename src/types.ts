@@ -14,19 +14,37 @@ export interface UrlContextMetadataItem {
   urlRetrievalStatus: string;
 }
 
+export interface MindMapData {
+  nodes: any[];
+  edges: any[];
+  isLoading: boolean;
+  error: string | null;
+  isVisible: boolean;
+}
+
+export interface Conversation {
+  id: string;
+  name: string;
+  groupId: string;
+  timestamp: Date;
+}
+
 export interface ChatMessage {
   id: string;
+  conversationId: string;
   text: string;
   sender: MessageSender;
   timestamp: Date;
   isLoading?: boolean;
   urlContext?: UrlContextMetadataItem[];
+  mindMap?: MindMapData;
 }
 
 // Interface base para metadados comuns a todas as fontes de conhecimento.
 interface BaseSource {
   id: string; // Será o hash SHA-256 do conteúdo.
   name: string; // Nome do arquivo ou URL.
+  groupId: string;
   timestamp: Date;
   userId: 'dev_user';
   selected: boolean;

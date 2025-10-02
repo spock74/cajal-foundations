@@ -4,7 +4,7 @@
  */
 
 import Dexie, { type Table } from 'dexie';
-import { type LibraryItem, type KnowledgeSource } from '../types';
+import { type LibraryItem, type KnowledgeSource, type ChatMessage, type Conversation, type KnowledgeGroup } from '../types';
 
 // Interface para o objeto que será armazenado na nova tabela.
 // O conteúdo é separado dos metadados para otimizar queries futuras.
@@ -17,15 +17,21 @@ export interface StoredSource {
 export class MyDatabase extends Dexie {
   public savedItems!: Table<LibraryItem, number>;
   public sourceContents!: Table<StoredSource, string>; // Nova tabela
+  public knowledgeGroups!: Table<KnowledgeGroup, string>;
+  public conversations!: Table<Conversation, string>;
+  public chatMessages!: Table<ChatMessage, string>;
 
   public constructor() {
     super('CajalFoundationsDB');
     
-    // ATENÇÃO: A versão do DB foi incrementada para '2' para introduzir o novo schema.
+    // ATENÇÃO: A versão do DB foi incrementada para '6' para introduzir o novo schema.
     // Isso irá migrar o banco de dados existente no navegador do usuário.
-    this.version(2).stores({
+    this.version(6).stores({
       savedItems: '++id, content, timestamp',
-      sourceContents: '&hashId', // '&' indica que 'hashId' é a chave primária e deve ser única.
+      sourceContents: '&hashId, groupId', // '&' indica que 'hashId' é a chave primária e deve ser única.
+      knowledgeGroups: 'id, name',
+      conversations: 'id, groupId, timestamp',
+      chatMessages: 'id, conversationId, timestamp',
     });
   }
 
@@ -79,6 +85,75 @@ export class MyDatabase extends Dexie {
   async getAllSourcesMetadata(): Promise<KnowledgeSource[]> {
     const allStoredSources = await this.sourceContents.toArray();
     return allStoredSources.map(s => s.metadata);
+  }
+
+  async getSourcesForGroup(groupId: string): Promise<KnowledgeSource[]> {
+    const storedSources = await this.sourceContents.where('groupId').equals(groupId).toArray();
+    return storedSources.map(s => s.metadata);
+  }
+
+  // --- Métodos para Grupos de Conhecimento ---
+
+  async getAllKnowledgeGroups(): Promise<KnowledgeGroup[]> {
+    return this.knowledgeGroups.toArray();
+  }
+
+  async addKnowledgeGroup(group: KnowledgeGroup): Promise<string> {
+    return this.knowledgeGroups.add(group);
+  }
+
+  async deleteKnowledgeGroup(groupId: string): Promise<void> {
+    // Transação para remover o grupo, suas fontes e suas conversas (e mensagens filhas)
+    // Esta lógica pode ser mais complexa dependendo das regras de negócio.
+  }
+
+  // --- Métodos para Conversas e Mensagens ---
+
+  async getAllConversations(): Promise<Conversation[]> {
+    return this.conversations.orderBy('timestamp').reverse().toArray();
+  }
+
+  async getConversationsForGroup(groupId: string): Promise<Conversation[]> {
+    return this.conversations.where('groupId').equals(groupId).sortBy('timestamp');
+  }
+
+  async addConversation(conversation: Conversation): Promise<string> {
+    return this.conversations.add(conversation);
+  }
+
+  async updateConversation(id: string, updates: Partial<Conversation>): Promise<number> {
+    return this.conversations.update(id, updates);
+  }
+
+  async deleteConversation(conversationId: string): Promise<void> {
+    // Usa uma transação para garantir que a conversa e suas mensagens sejam removidas atomicamente.
+    return this.transaction('rw', this.conversations, this.chatMessages, async () => {
+      await this.conversations.delete(conversationId);
+      await this.chatMessages.where('conversationId').equals(conversationId).delete();
+    });
+  }
+
+  async clearAllConversations(): Promise<void> {
+    await this.conversations.clear();
+    await this.chatMessages.clear();
+  }
+
+  // --- Novos Métodos para a tabela 'chatMessages' ---
+
+  async getAllChatMessages(): Promise<ChatMessage[]> {
+    return this.chatMessages.orderBy('timestamp').toArray();
+  }
+
+  async getMessagesForConversation(conversationId: string): Promise<ChatMessage[]> {
+    return this.chatMessages.where('conversationId').equals(conversationId).sortBy('timestamp');
+  }
+
+  async addChatMessage(message: ChatMessage): Promise<string> {
+    return this.chatMessages.add(message);
+  }
+
+  async updateChatMessage(id: string, updates: Partial<ChatMessage>): Promise<number> {
+    return this.chatMessages.update(id, updates);
   }
 }
 
