@@ -16,7 +16,6 @@ import {
 import type { UrlContextMetadataItem, KnowledgeSource, OptimizedPrompt } from '../types';
 
 // --- DEFINIÇÕES DE TIPO E CONSTANTES ---
-const MODEL_NAME = "gemini-2.5-flash-lite";
 // CORREÇÃO: Lendo a API Key do ambiente Vite.
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
@@ -73,7 +72,7 @@ class GeminiService {
 
 // DENTRO DA CLASSE GeminiService
 
-public async generateContentWithSources(prompt: string, sources: KnowledgeSource[]): Promise<GeminiResponse> {
+public async generateContentWithSources(prompt: string, sources: KnowledgeSource[], modelName: string): Promise<GeminiResponse> {
   // --- Bloco de construção do prompt (permanece o mesmo) ---
   const urls = sources.filter((s) => s.type === "url").map(s => s.value);
   
@@ -93,7 +92,7 @@ public async generateContentWithSources(prompt: string, sources: KnowledgeSource
   try {
     // Sugestão: Tipar o resultado da chamada da API.
     const result: GenerateContentResponse = await this.genAI.models.generateContent({
-      model: MODEL_NAME, // Corrected type name
+      model: modelName,
       contents: contents, // A variável 'contents' está definida aqui. (Corrige o erro 1)
       config: {
         tools: tools,
@@ -125,14 +124,14 @@ public async generateContentWithSources(prompt: string, sources: KnowledgeSource
       }));
     }
 
-    return { text, urlContextMetadata: extractedUrlContextMetadata, usageMetadata, modelName: MODEL_NAME };
+    return { text, urlContextMetadata: extractedUrlContextMetadata, usageMetadata, modelName: modelName };
   } catch (error) {
     // Sugestão: Usar o helper de erro centralizado.
     throw this.handleError(error, 'generateContentWithSources');
   }
 }
 
-  public async getInitialSuggestions(sources: KnowledgeSource[]): Promise<string[]> {
+  public async getInitialSuggestions(sources: KnowledgeSource[], modelName: string): Promise<string[]> {
     const urls = sources.filter(s => s.type === 'url').map(s => s.value);
     if (urls.length === 0) return [];
     
@@ -140,7 +139,7 @@ public async generateContentWithSources(prompt: string, sources: KnowledgeSource
     
     try {
       const result = await this.genAI.models.generateContent({
-        model: MODEL_NAME,
+        model: modelName,
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
           safetySettings: this.safetySettings,
@@ -155,7 +154,7 @@ public async generateContentWithSources(prompt: string, sources: KnowledgeSource
     }
   }
 
-  public async generateMindMapFromText(textToAnalyze: string): Promise<{ title: string, nodes: any[], edges: any[] }> {
+  public async generateMindMapFromText(textToAnalyze: string, modelName: string): Promise<{ title: string, nodes: any[], edges: any[] }> {
     const prompt = `Analise o texto: "${textToAnalyze}" e gere um mapa mental em JSON (nodes, edges)...`;
 
     // Sugestão: Prompt mais detalhado para garantir um formato de saída consistente.
@@ -172,7 +171,7 @@ public async generateContentWithSources(prompt: string, sources: KnowledgeSource
     `;
     try {
       const result = await this.genAI.models.generateContent({
-        model: MODEL_NAME,
+        model: modelName,
         contents: [{ role: 'user', parts: [{ text: structuredPrompt }] }],
         config: {
           safetySettings: this.safetySettings,
@@ -188,11 +187,11 @@ public async generateContentWithSources(prompt: string, sources: KnowledgeSource
     }
   }
 
-  public async generateTitleForConversation(firstMessage: string): Promise<string> {
+  public async generateTitleForConversation(firstMessage: string, modelName: string): Promise<string> {
     const prompt = `Gere um título curto e descritivo (máximo 5 palavras) para uma conversa que começa com a seguinte pergunta: "${firstMessage}". Responda apenas com o título.`;
     try {
       const result = await this.genAI.models.generateContent({
-        model: MODEL_NAME,
+        model: modelName,
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
           safetySettings: this.safetySettings,
@@ -208,7 +207,7 @@ public async generateContentWithSources(prompt: string, sources: KnowledgeSource
     }
   }
 
-  public async generateOptimizedPrompts(humanPrompt: string, sources: KnowledgeSource[]): Promise<OptimizedPrompt[]> {
+  public async generateOptimizedPrompts(humanPrompt: string, sources: KnowledgeSource[], modelName: string): Promise<OptimizedPrompt[]> {
     const sourcesContent = sources
       .filter((s): s is Extract<KnowledgeSource, { type: 'file' }> => s.type === 'file' && !!s.content)
       .map(source => `Fonte (Arquivo: ${source.name}):\n---\n${source.content}\n---\n\n`)
@@ -257,7 +256,7 @@ Agora, analise o seguinte prompt do usuário:
 
     try {
       const result = await this.genAI.models.generateContent({
-        model: MODEL_NAME,
+        model: modelName,
         contents: [{ role: 'user', parts: [{ text: metaPrompt }] }],
         config: {
           safetySettings: this.safetySettings,
@@ -265,7 +264,14 @@ Agora, analise o seguinte prompt do usuário:
         },
       });
 
-      const parsed = JSON.parse(result.text);
+      // Limpa a resposta para extrair apenas o JSON, removendo blocos de código Markdown.
+      let jsonString = result.text;
+      const jsonMatch = jsonString.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        jsonString = jsonMatch[0];
+      }
+
+      const parsed = JSON.parse(jsonString);
       if (!parsed.optimized_prompts) throw new Error("A resposta da IA não contém 'optimized_prompts'.");
       return parsed.optimized_prompts;
     } catch (error) {

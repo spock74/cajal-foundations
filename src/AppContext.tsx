@@ -3,7 +3,7 @@
  * @copyright 2025 - Todos os direitos reservados
  */
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import {
   Conversation,
   ChatMessage,
@@ -12,6 +12,7 @@ import {
   KnowledgeSource,
   LibraryItem,
 } from './types';
+import { DEFAULT_MODEL } from './components/models';
 import { geminiService } from './services/geminiService';
 import { db } from './services/dbService';
 import { sourceManagerService } from './services/sourceManagerService';
@@ -33,6 +34,7 @@ interface AppContextState {
   sourcesForActiveGroup: KnowledgeSource[];
   chatPlaceholder: string;
   activeConversationName: string;
+  activeModel: string;
 }
 
 interface AppContextActions {
@@ -52,9 +54,11 @@ interface AppContextActions {
   handleToggleSourceSelection: (sourceId: string) => void;
   handleSaveToLibrary: (message: ChatMessage) => Promise<void>;
   handleDeleteLibraryItem: (id: number) => Promise<void>;
+  handleOpenLibraryItem: (item: LibraryItem) => Promise<void>;
   handleSendMessage: (query: string, sourceIds: string[], actualPrompt?: string) => Promise<void>;
   handleOptimizePrompt: (query: string, sourceIds: string[]) => Promise<void>;
   handleGenerateMindMap: (messageId: string, text: string) => Promise<void>;
+  handleSetModel: (modelName: string) => void;
   handleMindMapLayoutChange: (messageId: string, layout: { expandedNodeIds?: string[], nodePositions?: { [nodeId: string]: { x: number, y: number } } }) => void;
 }
 
@@ -62,7 +66,7 @@ type AppContextType = AppContextState & AppContextActions;
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => { // NOSONAR
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [groups, setGroups] = useState<KnowledgeGroup[]>([]);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
@@ -72,6 +76,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [isLoading, setIsLoading] = useState(false);
   const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([]);
   const [allKnowledgeSources, setAllKnowledgeSources] = useState<KnowledgeSource[]>([]);
+  const [activeModel, setActiveModel] = useState<string>(() => {
+    return localStorage.getItem('activeModel') || DEFAULT_MODEL;
+  });
+
 
   const { toast } = useToast();
   const [theme, setTheme] = useState<"light" | "dark">(() => {
@@ -128,22 +136,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     ? libraryItems.filter(item => item.groupId === activeGroupId)
     : [];
 
-  const handleSetGroup = async (groupId: string) => {
+  const handleSetModel = useCallback((modelName: string) => {
+    setActiveModel(modelName);
+    localStorage.setItem('activeModel', modelName);
+  }, []);
+
+  const handleSetGroup = useCallback(async (groupId: string) => {
     setActiveGroupId(groupId);
     const convosForGroup = await db.getConversationsForGroup(groupId);
     setConversations(convosForGroup);
     setActiveConversationId(null);
     setChatMessages([]);
-  };
+  }, []);
 
-  const handleAddGroup = async (name: string) => {
+  const handleAddGroup = useCallback(async (name: string) => {
     const newGroup = { id: `group-${Date.now()}`, name, sources: [] };
     await db.addKnowledgeGroup(newGroup);
     setGroups(prev => [...prev, newGroup]);
     await handleSetGroup(newGroup.id);
-  };
+  }, [handleSetGroup]);
 
-  const handleDeleteGroup = async (groupId: string) => {
+  const handleDeleteGroup = useCallback(async (groupId: string) => {
     await db.deleteKnowledgeGroup(groupId);
     const remainingGroups = groups.filter(g => g.id !== groupId);
     setGroups(remainingGroups);
@@ -156,53 +169,53 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
     }
     toast({ title: "Tópico removido", description: "O tópico e todas as suas conversas foram removidos." });
-  };
+  }, [groups, activeGroupId, handleSetGroup, toast]);
 
-  const handleUpdateGroup = async (groupId: string, newName: string) => {
+  const handleUpdateGroup = useCallback(async (groupId: string, newName: string) => {
     await db.knowledgeGroups.update(groupId, { name: newName });
     setGroups(prev => prev.map(g => g.id === groupId ? { ...g, name: newName } : g));
     toast({ title: "Tópico atualizado", description: `O nome do tópico foi alterado para "${newName}".` });
-  };
+  }, [toast]);
 
-  const handleSetConversation = async (id: string) => {
+  const handleSetConversation = useCallback(async (id: string) => {
     if (id === activeConversationId) return;
     const messages = await db.getMessagesForConversation(id);
     setChatMessages(messages);
     setActiveConversationId(id);
-  };
+  }, [activeConversationId]);
 
-  const handleNewConversation = () => {
+  const handleNewConversation = useCallback(() => {
     setActiveConversationId(null);
     setChatMessages([]);
-  };
+  }, []);
 
-  const handleDeleteConversation = async (id: string) => {
+  const handleDeleteConversation = useCallback(async (id: string) => {
     await db.deleteConversation(id);
     const newConversations = conversations.filter(c => c.id !== id);
     setConversations(newConversations);
     if (activeConversationId === id) {
       newConversations.length > 0 ? await handleSetConversation(newConversations[0].id) : handleNewConversation();
     }
-  };
+  }, [conversations, activeConversationId, handleSetConversation, handleNewConversation]);
 
-  const handleClearAllConversations = async () => {
+  const handleClearAllConversations = useCallback(async () => {
     await db.clearAllConversations();
     setConversations([]);
     handleNewConversation();
-  };
+  }, [handleNewConversation]);
 
-  const handleUrlAdd = async (url: string) => {
+  const handleUrlAdd = useCallback(async (url: string) => {
     if (!activeGroupId) return;
     setIsLoading(true);
     try {
       const newSource = await sourceManagerService.addUrlSource(url, activeGroupId);
       setAllKnowledgeSources(prev => prev.find(s => s.id === newSource.id) ? prev : [...prev, newSource]);
-      setGroups(prevGroups => {
-        const newGroups = prevGroups.map(g => g.id === activeGroupId ? { ...g, sources: [...g.sources, newSource] } : g);
-        const updatedGroup = newGroups.find(g => g.id === activeGroupId);
-        if (updatedGroup) db.knowledgeGroups.update(activeGroupId, { sources: updatedGroup.sources });
-        return newGroups;
-      });
+      const updatedGroup = await db.knowledgeGroups.get(activeGroupId);
+      if (updatedGroup) {
+        const finalSources = [...updatedGroup.sources, newSource];
+        await db.knowledgeGroups.update(activeGroupId, { sources: finalSources });
+        setGroups(prev => prev.map(g => g.id === activeGroupId ? { ...g, sources: finalSources } : g));
+      }
     } catch (error) {
       toast({
         variant: "destructive",
@@ -212,20 +225,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [activeGroupId, toast]);
   
-  const handleFileAdd = async (file: File) => {
+  const handleFileAdd = useCallback(async (file: File) => {
     if (!activeGroupId) return;
     setIsLoading(true);
     try {
       const newSource = await sourceManagerService.addFileSource(file, activeGroupId);
       setAllKnowledgeSources(prev => prev.find(s => s.id === newSource.id) ? prev : [...prev, newSource]);
-      setGroups(prevGroups => {
-        const newGroups = prevGroups.map(g => g.id === activeGroupId ? { ...g, sources: [...g.sources, newSource] } : g);
-        const updatedGroup = newGroups.find(g => g.id === activeGroupId);
-        if (updatedGroup) db.knowledgeGroups.update(activeGroupId, { sources: updatedGroup.sources });
-        return newGroups;
-      });
+      const updatedGroup = await db.knowledgeGroups.get(activeGroupId);
+      if (updatedGroup) {
+        const finalSources = [...updatedGroup.sources, newSource];
+        await db.knowledgeGroups.update(activeGroupId, { sources: finalSources });
+        setGroups(prev => prev.map(g => g.id === activeGroupId ? { ...g, sources: finalSources } : g));
+      }
     } catch (error) {
       toast({
         variant: "destructive",
@@ -235,16 +248,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [activeGroupId, toast]);
 
-  const handleRemoveSource = async (sourceId: string) => {
+  const handleRemoveSource = useCallback(async (sourceId: string) => {
     if (!activeGroupId) return;
     await db.deleteSource(sourceId);
     setAllKnowledgeSources(prev => prev.filter(s => s.id !== sourceId));
     setGroups(prev => prev.map(g => g.id === activeGroupId ? { ...g, sources: g.sources.filter(s => s.id !== sourceId) } : g));
-  };
+  }, [activeGroupId]);
 
-  const handleToggleSourceSelection = (sourceId: string) => { // Esta função precisa atualizar o grupo também
+  const handleToggleSourceSelection = useCallback((sourceId: string) => { // Esta função precisa atualizar o grupo também
     setGroups(prevGroups => prevGroups.map(g => {
       if (g.id === activeGroupId && g.sources) {
         const newSources = g.sources.map(s => s.id === sourceId ? { ...s, selected: !s.selected } : s);
@@ -254,9 +267,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
       return g;
     }));
-  };
+  }, [activeGroupId]);
 
-  const handleSaveToLibrary = async (message: ChatMessage) => {
+  const handleSaveToLibrary = useCallback(async (message: ChatMessage) => {
     if (!activeGroupId || !activeConversationId) return;
     const newItem: LibraryItem = {
       type: 'text',
@@ -269,8 +282,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
     const id = await db.addSavedItem(newItem);
     setLibraryItems(prev => [...prev, { ...newItem, id }].sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime()));
-  };
-  const handleDeleteLibraryItem = async (id: number) => {
+  }, [activeGroupId, activeConversationId]);
+
+  const handleDeleteLibraryItem = useCallback(async (id: number) => {
     const itemToDelete = libraryItems.find(item => item.id === id);
     if (!itemToDelete) return;
 
@@ -289,16 +303,36 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     await db.deleteSavedItem(id);
     setLibraryItems(prev => prev.filter(item => item.id !== id));
-  };
+  }, [libraryItems]);
+
+  const handleOpenLibraryItem = useCallback(async (item: LibraryItem) => {
+    // Navega para o grupo e conversa corretos
+    if (activeGroupId !== item.groupId) {
+      await handleSetGroup(item.groupId);
+    }
+    if (activeConversationId !== item.conversationId) {
+      await handleSetConversation(item.conversationId);
+    }
+
+    // Se for um mapa mental, torna-o visível
+    if (item.type === 'mindmap' && item.messageId) {
+      setChatMessages(prev => prev.map(msg => {
+        if (msg.id === item.messageId && msg.mindMap) {
+          return { ...msg, mindMap: { ...msg.mindMap, isVisible: true } };
+        }
+        return msg;
+      }));
+    }
+  }, [activeGroupId, activeConversationId, handleSetGroup, handleSetConversation]);
   
-  const handleSendMessage = async (query: string, sourceIds: string[], actualPrompt?: string) => {
+  const handleSendMessage = useCallback(async (query: string, sourceIds: string[], actualPrompt?: string) => {
     if (!query.trim() || isLoading || !activeGroupId) return;
     const promptForAI = actualPrompt || query;
     setIsLoading(true);
     let currentConversationId = activeConversationId;
     if (!currentConversationId) {
       const newConversationId = `convo-${Date.now()}`;
-      const title = await geminiService.generateTitleForConversation(query);
+      const title = await geminiService.generateTitleForConversation(query, activeModel);
       const newConversation: Conversation = { id: newConversationId, name: title, groupId: activeGroupId, timestamp: new Date() };
       await db.addConversation(newConversation);
       // Correção: Recarrega as conversas do DB para garantir a ordem correta.
@@ -314,7 +348,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     await db.addChatMessage(modelPlaceholder);
     try {
       const selectedSources = allKnowledgeSources.filter(s => sourceIds.includes(s.id));
-      const response = await geminiService.generateContentWithSources(promptForAI, selectedSources);
+      const response = await geminiService.generateContentWithSources(promptForAI, selectedSources, activeModel);
       const finalMessage: ChatMessage = { 
         ...modelPlaceholder, 
         text: response.text, 
@@ -338,9 +372,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [isLoading, activeGroupId, activeConversationId, activeModel, allKnowledgeSources]);
 
-  const handleOptimizePrompt = async (query: string, sourceIds: string[]) => {
+  const handleOptimizePrompt = useCallback(async (query: string, sourceIds: string[]) => {
     if (!query.trim() || isLoading || !activeGroupId) return;
     setIsLoading(true);
     const { dismiss } = toast({
@@ -348,27 +382,42 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       description: "Aguarde enquanto a IA gera sugestões.",
     });
 
-    // Adiciona a mensagem do usuário e um placeholder para o sistema
-    const userMessage: ChatMessage = { id: `user-${Date.now()}`, conversationId: activeConversationId || "temp", text: query, sender: MessageSender.USER, timestamp: new Date(), sourceIds };
-    const systemPlaceholder: ChatMessage = { id: `system-loading-${Date.now()}`, conversationId: activeConversationId || "temp", text: 'Otimizando prompt...', sender: MessageSender.SYSTEM, timestamp: new Date(), isLoading: true };
+    let currentConversationId = activeConversationId;
+    // Se não houver conversa ativa, cria uma nova.
+    if (!currentConversationId) {
+      const newConversationId = `convo-${Date.now()}`;
+      const title = await geminiService.generateTitleForConversation(query, activeModel);
+      const newConversation: Conversation = { id: newConversationId, name: title, groupId: activeGroupId, timestamp: new Date() };
+      await db.addConversation(newConversation);
+      const updatedConversations = await db.getConversationsForGroup(activeGroupId);
+      setConversations(updatedConversations);
+      setActiveConversationId(newConversationId);
+      currentConversationId = newConversationId;
+    }
+
+    const userMessage: ChatMessage = { id: `user-${Date.now()}`, conversationId: currentConversationId, text: query, sender: MessageSender.USER, timestamp: new Date(), sourceIds };
+    const systemPlaceholder: ChatMessage = { id: `system-loading-${Date.now()}`, conversationId: currentConversationId, text: 'Otimizando prompt...', sender: MessageSender.SYSTEM, timestamp: new Date(), isLoading: true };
+    
     setChatMessages(prev => [...prev, userMessage, systemPlaceholder]);
-    // Não salvamos a mensagem do usuário ainda, pois a conversa pode não existir.
+    await db.addChatMessage(userMessage);
+    await db.addChatMessage(systemPlaceholder);
 
     try {
       const selectedSources = allKnowledgeSources.filter(s => sourceIds.includes(s.id));
-      const suggestions = await geminiService.generateOptimizedPrompts(query, selectedSources);
+      const suggestions = await geminiService.generateOptimizedPrompts(query, selectedSources, activeModel);
       
       const systemMessage: ChatMessage = {
-        id: `system-prompts-${Date.now()}`,
-        conversationId: activeConversationId || "temp",
+        ...systemPlaceholder,
         text: "Aqui estão algumas sugestões para refinar sua pergunta:",
-        sender: MessageSender.SYSTEM,
-        timestamp: new Date(),
+        isLoading: false,
         optimizedPrompts: suggestions,
-        sourceIds: sourceIds, // Carrega os sourceIds para a próxima etapa
+        sourceIds: sourceIds,
       };
+
       // Substitui o placeholder pela mensagem final com as sugestões
       setChatMessages(prev => prev.map(msg => msg.id === systemPlaceholder.id ? systemMessage : msg));
+      await db.updateChatMessage(systemPlaceholder.id, systemMessage); // Persiste a mensagem com as sugestões
+
       toast({
         title: "Sugestões Prontas!",
         description: "Escolha uma das opções para refinar sua pesquisa.",
@@ -381,13 +430,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         description: e.message,
       });
       setChatMessages(prev => prev.map(msg => msg.id === systemPlaceholder.id ? errorMessage : msg));
+      await db.updateChatMessage(systemPlaceholder.id, errorMessage);
     } finally { 
       setIsLoading(false); 
       dismiss();
     }
-  };
+  }, [isLoading, activeGroupId, activeConversationId, activeModel, allKnowledgeSources, toast]);
 
-  const handleGenerateMindMap = async (messageId: string, text: string) => {
+  const handleGenerateMindMap = useCallback(async (messageId: string, text: string) => {
     if (!activeConversationId) return;
     const { dismiss } = toast({ title: "Gerando Mapa Mental..." });
 
@@ -416,7 +466,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     updateMindMapState({ mindMap: { isVisible: true, isLoading: true, error: null, nodes: [], edges: [] } });
     try {
-      const { title, nodes, edges } = await geminiService.generateMindMapFromText(text);
+      const { title, nodes, edges } = await geminiService.generateMindMapFromText(text, activeModel);
       if (nodes.length === 0) throw new Error("Não foi possível extrair conceitos para o mapa mental.");
       const rootNode = nodes.find(n => !edges.some(e => e.target === n.id)) || nodes[0];
       
@@ -458,9 +508,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         dismiss();
       }
     }
-  };
+  }, [activeConversationId, chatMessages, activeModel, activeGroupId, toast]);
 
-  const handleMindMapLayoutChange = (messageId: string, layout: { expandedNodeIds?: string[], nodePositions?: { [nodeId: string]: { x: number, y: number } } }) => {
+  const handleMindMapLayoutChange = useCallback((messageId: string, layout: { expandedNodeIds?: string[], nodePositions?: { [nodeId: string]: { x: number, y: number } } }) => {
     setChatMessages(prev => prev.map(msg => {
       if (msg.id === messageId && msg.mindMap) {
         const updatedMindMap = { ...msg.mindMap, ...layout };
@@ -469,19 +519,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
       return msg;
     }));
-  };
+  }, []);
 
-  const chatPlaceholder = sourcesForActiveGroup.filter(s => s.selected).length > 0
-    ? `Perguntar sobre as ${sourcesForActiveGroup.filter(s => s.selected).length} fontes selecionadas...`
-    : "Comece uma nova conversa ou adicione fontes.";
-  const activeConversationName = 
-    conversations.find(c => c.id === activeConversationId)?.name || 
-    (activeConversationId === null && chatMessages.length === 0 ? "Nova Conversa" : "Navegador de Documentos");
+  const chatPlaceholder = useMemo(() => sourcesForActiveGroup.filter(s => s.selected).length > 0
+      ? `Perguntar sobre as ${sourcesForActiveGroup.filter(s => s.selected).length} fontes selecionadas...`
+      : "Comece uma nova conversa ou adicione fontes.", [sourcesForActiveGroup]);
 
-  const value = {
-    conversations, groups, activeGroupId, activeConversationId, isSidebarOpen, chatMessages, isLoading, libraryItems, allKnowledgeSources, libraryItemsForActiveContext, theme, activeGroup, sourcesForActiveGroup, chatPlaceholder, activeConversationName,
-    setTheme, setIsSidebarOpen, handleSetGroup, handleAddGroup, handleDeleteGroup, handleUpdateGroup, handleSetConversation, handleNewConversation, handleDeleteConversation, handleClearAllConversations, handleUrlAdd, handleFileAdd, handleRemoveSource, handleToggleSourceSelection, handleSaveToLibrary, handleDeleteLibraryItem, handleSendMessage, handleOptimizePrompt, handleGenerateMindMap, handleMindMapLayoutChange
-  };
+  const activeConversationName = useMemo(() => 
+      conversations.find(c => c.id === activeConversationId)?.name || 
+      (activeConversationId === null && chatMessages.length === 0 ? "Nova Conversa" : "Navegador de Documentos"), 
+  [conversations, activeConversationId, chatMessages.length]);
+
+  const value = useMemo(() => ({
+      conversations, groups, activeGroupId, activeConversationId, isSidebarOpen, chatMessages, isLoading, libraryItems, allKnowledgeSources, libraryItemsForActiveContext, theme, activeGroup, sourcesForActiveGroup, chatPlaceholder, activeConversationName, activeModel,
+      setTheme, setIsSidebarOpen, handleSetGroup, handleAddGroup, handleDeleteGroup, handleUpdateGroup, handleSetConversation, handleNewConversation, handleDeleteConversation, handleClearAllConversations, handleUrlAdd, handleFileAdd, handleRemoveSource, handleToggleSourceSelection, handleSaveToLibrary, handleDeleteLibraryItem, handleOpenLibraryItem, handleSendMessage, handleOptimizePrompt, handleGenerateMindMap, handleSetModel, handleMindMapLayoutChange
+  }), [conversations, groups, activeGroupId, activeConversationId, isSidebarOpen, chatMessages, isLoading, libraryItems, allKnowledgeSources, libraryItemsForActiveContext, theme, activeGroup, sourcesForActiveGroup, chatPlaceholder, activeConversationName, activeModel, handleSetGroup, handleAddGroup, handleDeleteGroup, handleUpdateGroup, handleSetConversation, handleNewConversation, handleDeleteConversation, handleClearAllConversations, handleUrlAdd, handleFileAdd, handleRemoveSource, handleToggleSourceSelection, handleSaveToLibrary, handleDeleteLibraryItem, handleOpenLibraryItem, handleSendMessage, handleOptimizePrompt, handleGenerateMindMap, handleSetModel, handleMindMapLayoutChange]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

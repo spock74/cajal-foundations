@@ -16,7 +16,7 @@ const App: React.FC = () => {
     conversations, activeConversationId, handleSetConversation, handleNewConversation, handleDeleteConversation, handleClearAllConversations,
     sourcesForActiveGroup, handleUrlAdd, handleFileAdd, handleRemoveSource, handleToggleSourceSelection,
     chatMessages, isLoading, handleSendMessage,
-    libraryItemsForActiveContext, handleDeleteLibraryItem, handleSaveToLibrary, handleOptimizePrompt,
+    libraryItemsForActiveContext, handleDeleteLibraryItem, handleOpenLibraryItem, handleSaveToLibrary, handleOptimizePrompt, activeModel, handleSetModel,
     theme, setTheme,
     isSidebarOpen, setIsSidebarOpen,
     chatPlaceholder, activeConversationName, handleGenerateMindMap,
@@ -53,6 +53,8 @@ const App: React.FC = () => {
               onFileAdd={handleFileAdd}
               onRemoveSource={handleRemoveSource}
               onToggleSourceSelection={handleToggleSourceSelection}
+              activeModel={activeModel}
+              onSetModel={handleSetModel}
             />
           </div>
 
@@ -75,7 +77,7 @@ const App: React.FC = () => {
 
           </div>
           <div className="hidden lg:block lg:w-1/4 xl:w-1/5 h-full">
-            <LibraryPanel items={libraryItemsForActiveContext} onDeleteItem={handleDeleteLibraryItem} />
+            <LibraryPanel items={libraryItemsForActiveContext} onDeleteItem={handleDeleteLibraryItem} onItemClick={handleOpenLibraryItem} />
           </div>
         </div>
         <Toaster />

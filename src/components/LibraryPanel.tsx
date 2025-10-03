@@ -10,6 +10,7 @@ import { LibraryItem } from '../types';
 interface LibraryPanelProps {
   items: LibraryItem[];
   onDeleteItem: (id: number) => void;
+  onItemClick?: (item: LibraryItem) => void;
 }
 
 // NOTA: Movido para fora do componente principal para evitar recriação a cada renderização, o que pode causar problemas de estado e desempenho.
@@ -23,7 +24,7 @@ const ActionButton: React.FC<{ icon: React.ReactNode; label: string; title: stri
   </button>
 );
 
-const LibraryPanel: React.FC<LibraryPanelProps> = ({ items, onDeleteItem }) => {
+const LibraryPanel: React.FC<LibraryPanelProps> = ({ items, onDeleteItem, onItemClick }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredItems = items.filter(item => 
@@ -73,7 +74,8 @@ const LibraryPanel: React.FC<LibraryPanelProps> = ({ items, onDeleteItem }) => {
           filteredItems.map(item => (
             <div 
               key={item.id} 
-              className="p-2.5 bg-gray-100 dark:bg-[#2C2C2C] border border-black/5 dark:border-white/10 rounded-lg group transition-colors hover:bg-gray-200 dark:hover:bg-white/5"
+              onClick={() => onItemClick && onItemClick(item)}
+              className="p-2.5 bg-gray-100 dark:bg-[#2C2C2C] border border-black/5 dark:border-white/10 rounded-lg group transition-colors hover:bg-gray-200 dark:hover:bg-white/5 cursor-pointer"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-start gap-2 min-w-0">
