@@ -4,16 +4,17 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { ChatMessage, MessageSender, KnowledgeSource } from '../types'; 
+import { ChatMessage, MessageSender, KnowledgeSource, OptimizedPrompt } from '../types'; 
 import MessageItem from './MessageItem';
 import ThemeSwitcher from './ThemeSwitcher';
-import { Send, Menu } from 'lucide-react';
+import { Send, Menu, Sparkles } from 'lucide-react';
 
 interface ChatInterfaceProps {
   activeSources: KnowledgeSource[];
   messages: ChatMessage[];
   conversationTitle: string;
-  onSendMessage: (query: string, sourceIds: string[]) => void;
+  onSendMessage: (query: string, sourceIds: string[], actualPrompt?: string) => void;
+  onOptimizePrompt: (query: string, sourceIds: string[]) => void;
   isLoading: boolean;
   placeholderText?: string;
   onToggleSidebar?: () => void;
@@ -29,6 +30,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   messages, 
   conversationTitle,
   onSendMessage, 
+  onOptimizePrompt,
   isLoading, 
   placeholderText,
   onToggleSidebar,
@@ -51,6 +53,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     if (userQuery.trim() && !isLoading) {
       const selectedSourceIds = activeSources.filter(s => s.selected).map(s => s.id);
       onSendMessage(userQuery.trim(), selectedSourceIds);
+      setUserQuery('');
+    }
+  };
+
+  const handleOptimize = () => {
+    if (userQuery.trim() && !isLoading) {
+      const selectedSourceIds = activeSources.filter(s => s.selected).map(s => s.id);
+      onOptimizePrompt(userQuery.trim(), selectedSourceIds);
       setUserQuery('');
     }
   };
@@ -83,7 +93,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       <div className="flex-grow p-4 overflow-y-auto chat-container">
         <div className="max-w-4xl mx-auto w-full">
           {messages.map((msg) => (
-            <MessageItem key={msg.id} message={msg} onToggleMindMap={onToggleMindMap} onMindMapLayoutChange={onMindMapLayoutChange} onSaveToLibrary={onSaveToLibrary} />
+            <MessageItem 
+              key={msg.id} 
+              message={msg} 
+              onSendMessage={onSendMessage} // Passando onSendMessage para o MessageItem
+              onToggleMindMap={onToggleMindMap} 
+              onMindMapLayoutChange={onMindMapLayoutChange} onSaveToLibrary={onSaveToLibrary} />
           ))}
           <div ref={messagesEndRef} />
         </div>
@@ -91,7 +106,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
       <div className="p-4 border-t border-black/5 dark:border-white/5 bg-transparent rounded-b-2xl">
         <div className="flex items-center gap-2">
-          <textarea
+           <textarea
             value={userQuery}
             onChange={(e) => setUserQuery(e.target.value)}
             placeholder={placeholderText || "Comece uma nova conversa..."}
@@ -105,6 +120,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               }
             }}
           />
+          <button
+            onClick={handleOptimize}
+            disabled={isLoading || !userQuery.trim()}
+            className="h-10 w-10 p-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl transition-colors disabled:bg-gray-300 dark:disabled:bg-white/5 disabled:text-gray-500 dark:disabled:text-gray-600 flex items-center justify-center flex-shrink-0"
+            aria-label="Otimizar prompt"
+          >
+            <Sparkles size={18} />
+          </button>
           <button
             onClick={handleSend}
             disabled={isLoading || !userQuery.trim()}

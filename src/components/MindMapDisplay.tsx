@@ -91,8 +91,8 @@ const CustomMindMapNode = React.memo(({ data }: { data: any }) => {
   );
 });
 
-// Registra o nó customizado para que o ReactFlow possa usá-lo.
-const nodeTypes = { mindMapNode: CustomMindMapNode };
+// Otimização: Definir nodeTypes fora do componente para evitar recriações.
+const nodeTypes = { mindMapNode: CustomMindMapNode }; 
 
 const MindMapDisplay: React.FC<MindMapDisplayProps> = ({
   isLoading,
@@ -178,22 +178,23 @@ const MindMapDisplay: React.FC<MindMapDisplayProps> = ({
     const visibleEdges = rawEdges.filter(edge => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target));
 
     const augmentedNodes = visibleNodes.map(node => {
-      // Estimar altura baseada no comprimento do texto para um layout mais preciso.
+      // Correção: Garante que width e height existam antes do layout.
       const estimatedHeight = 40 + Math.floor((node.label || '').length / 25) * 15;
       return {
-      ...node,
-      type: 'mindMapNode', // Usa nosso nó customizado.
-      width: 180,
-      height: estimatedHeight,
-      data: {
-        ...node.data,
-        label: node.label || node.data.label,
-        isExpanded: expandedSet.has(node.id),
-        hasChildren: (childrenMap.get(node.id) || []).length > 0,
-        onToggle: () => handleToggleNode(node.id),
-        depth: node.depth,
-      }
-    }});
+        ...node,
+        type: 'mindMapNode',
+        width: 180, // Largura padrão
+        height: estimatedHeight, // Altura estimada
+        data: {
+          ...node.data,
+          label: node.label || node.data?.label,
+          isExpanded: expandedSet.has(node.id),
+          hasChildren: (childrenMap.get(node.id) || []).length > 0,
+          onToggle: () => handleToggleNode(node.id),
+          depth: node.depth,
+        }
+      };
+    });
     
     const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(augmentedNodes, visibleEdges);
     
@@ -218,7 +219,7 @@ const MindMapDisplay: React.FC<MindMapDisplayProps> = ({
 
     setTimeout(() => fitView({ duration: 400 }), 50);
 
-  }, [rootNode, rawNodes, rawEdges, childrenMap, expandedNodeIds, handleToggleNode, fitView, setNodes, setEdges, nodePositions]);
+  }, [rootNode, rawNodes, rawEdges, childrenMap, expandedNodeIds, fitView, setNodes, setEdges, nodePositions]);
 
   const handleNodesChange = useCallback((changes) => {
     onNodesChange(changes);

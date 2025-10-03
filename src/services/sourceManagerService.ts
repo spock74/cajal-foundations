@@ -53,7 +53,7 @@ class SourceManagerService {
    * @returns O objeto KnowledgeSource completo e persistido.
    * @throws Lança um erro se a validação falhar, a leitura falhar, ou o arquivo já existir no DB.
    */
-  public async addFileSource(file: File): Promise<KnowledgeSource> {
+  public async addFileSource(file: File, groupId: string): Promise<KnowledgeSource> {
     // 1. Validação
     if (!APP_CONFIG.ACCEPTED_KNOWLEDGE_FILE_TYPES.includes(file.type)) {
       throw new Error(`Tipo de arquivo '${file.type}' não é suportado.`);
@@ -96,6 +96,7 @@ class SourceManagerService {
       type: 'file',
       id: hashId,
       name: file.name,
+      groupId: groupId,
       timestamp: new Date(),
       userId: 'dev_user',
       selected: true,
@@ -127,7 +128,7 @@ class SourceManagerService {
   /**
    * Adiciona uma fonte de URL (funcionalidade futura).
    */
-  public async addUrlSource(url: string): Promise<KnowledgeSource> {
+  public async addUrlSource(url: string, groupId: string): Promise<KnowledgeSource> {
     // TODO: Implementar a lógica de scraping da URL, possivelmente via Cloud Function.
     console.warn("A funcionalidade de adicionar URL precisa ser implementada com scraping de backend.");
     // Placeholder para manter a UI funcionando:
@@ -139,6 +140,7 @@ class SourceManagerService {
       id: hashId,
       name: url,
       value: url,
+      groupId: groupId,
       timestamp: new Date(),
       userId: 'dev_user',
       selected: true

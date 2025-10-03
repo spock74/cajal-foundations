@@ -15,6 +15,7 @@ import {
 import { geminiService } from './services/geminiService';
 import { db } from './services/dbService';
 import { sourceManagerService } from './services/sourceManagerService';
+import { useToast } from '@/hooks/use-toast';
 
 interface AppContextState {
   conversations: Conversation[];
@@ -26,6 +27,7 @@ interface AppContextState {
   isLoading: boolean;
   libraryItems: LibraryItem[];
   allKnowledgeSources: KnowledgeSource[];
+  libraryItemsForActiveContext: LibraryItem[];
   theme: 'light' | 'dark';
   activeGroup: KnowledgeGroup | undefined;
   sourcesForActiveGroup: KnowledgeSource[];
@@ -38,6 +40,8 @@ interface AppContextActions {
   setIsSidebarOpen: (isOpen: boolean) => void;
   handleSetGroup: (groupId: string) => Promise<void>;
   handleAddGroup: (name: string) => Promise<void>;
+  handleDeleteGroup: (groupId: string) => Promise<void>;
+  handleUpdateGroup: (groupId: string, newName: string) => Promise<void>;
   handleSetConversation: (id: string) => Promise<void>;
   handleNewConversation: () => void;
   handleDeleteConversation: (id: string) => Promise<void>;
@@ -48,7 +52,8 @@ interface AppContextActions {
   handleToggleSourceSelection: (sourceId: string) => void;
   handleSaveToLibrary: (message: ChatMessage) => Promise<void>;
   handleDeleteLibraryItem: (id: number) => Promise<void>;
-  handleSendMessage: (query: string, sourceIds: string[]) => Promise<void>;
+  handleSendMessage: (query: string, sourceIds: string[], actualPrompt?: string) => Promise<void>;
+  handleOptimizePrompt: (query: string, sourceIds: string[]) => Promise<void>;
   handleGenerateMindMap: (messageId: string, text: string) => Promise<void>;
   handleMindMapLayoutChange: (messageId: string, layout: { expandedNodeIds?: string[], nodePositions?: { [nodeId: string]: { x: number, y: number } } }) => void;
 }
@@ -68,12 +73,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([]);
   const [allKnowledgeSources, setAllKnowledgeSources] = useState<KnowledgeSource[]>([]);
 
+  const { toast } = useToast();
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     const savedTheme = localStorage.getItem("theme");
     if (savedTheme === "light" || savedTheme === "dark") return savedTheme;
     const systemPrefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
     return systemPrefersDark ? "dark" : "light";
   });
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    root.classList.remove('light', 'dark');
+    root.classList.add(theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
 
   useEffect(() => {
     async function loadInitialData() {
@@ -110,6 +123,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const activeGroup = groups.find(g => g.id === activeGroupId);
   const sourcesForActiveGroup = activeGroup ? activeGroup.sources : [];
 
+  // Filtra os itens da biblioteca para o grupo ativo.
+  const libraryItemsForActiveContext = activeGroupId 
+    ? libraryItems.filter(item => item.groupId === activeGroupId)
+    : [];
+
   const handleSetGroup = async (groupId: string) => {
     setActiveGroupId(groupId);
     const convosForGroup = await db.getConversationsForGroup(groupId);
@@ -123,6 +141,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     await db.addKnowledgeGroup(newGroup);
     setGroups(prev => [...prev, newGroup]);
     await handleSetGroup(newGroup.id);
+  };
+
+  const handleDeleteGroup = async (groupId: string) => {
+    await db.deleteKnowledgeGroup(groupId);
+    const remainingGroups = groups.filter(g => g.id !== groupId);
+    setGroups(remainingGroups);
+
+    if (activeGroupId === groupId) {
+      if (remainingGroups.length > 0) {
+        await handleSetGroup(remainingGroups[0].id);
+      } else {
+        // Lidar com o caso em que não há mais grupos
+      }
+    }
+    toast({ title: "Tópico removido", description: "O tópico e todas as suas conversas foram removidos." });
+  };
+
+  const handleUpdateGroup = async (groupId: string, newName: string) => {
+    await db.knowledgeGroups.update(groupId, { name: newName });
+    setGroups(prev => prev.map(g => g.id === groupId ? { ...g, name: newName } : g));
+    toast({ title: "Tópico atualizado", description: `O nome do tópico foi alterado para "${newName}".` });
   };
 
   const handleSetConversation = async (id: string) => {
@@ -165,7 +204,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return newGroups;
       });
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Ocorreu um erro desconhecido.");
+      toast({
+        variant: "destructive",
+        title: "Erro ao Adicionar URL",
+        description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido.",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -184,7 +227,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return newGroups;
       });
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Ocorreu um erro desconhecido.");
+      toast({
+        variant: "destructive",
+        title: "Erro ao Adicionar Arquivo",
+        description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido.",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -224,12 +271,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setLibraryItems(prev => [...prev, { ...newItem, id }].sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime()));
   };
   const handleDeleteLibraryItem = async (id: number) => {
+    const itemToDelete = libraryItems.find(item => item.id === id);
+    if (!itemToDelete) return;
+
+    // Se o item for um mapa mental, "desarquiva" na mensagem original.
+    if (itemToDelete.type === 'mindmap' && itemToDelete.messageId) {
+      const messageId = itemToDelete.messageId;
+      setChatMessages(prev => prev.map(msg => {
+        if (msg.id === messageId && msg.mindMap) {
+          const updatedMindMap = { ...msg.mindMap, isArchived: false, isVisible: false };
+          db.updateChatMessage(messageId, { mindMap: updatedMindMap });
+          return { ...msg, mindMap: updatedMindMap };
+        }
+        return msg;
+      }));
+    }
+
     await db.deleteSavedItem(id);
     setLibraryItems(prev => prev.filter(item => item.id !== id));
   };
   
-  const handleSendMessage = async (query: string, sourceIds: string[]) => {
+  const handleSendMessage = async (query: string, sourceIds: string[], actualPrompt?: string) => {
     if (!query.trim() || isLoading || !activeGroupId) return;
+    const promptForAI = actualPrompt || query;
     setIsLoading(true);
     let currentConversationId = activeConversationId;
     if (!currentConversationId) {
@@ -237,7 +301,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const title = await geminiService.generateTitleForConversation(query);
       const newConversation: Conversation = { id: newConversationId, name: title, groupId: activeGroupId, timestamp: new Date() };
       await db.addConversation(newConversation);
-      setConversations(prev => [newConversation, ...prev]);
+      // Correção: Recarrega as conversas do DB para garantir a ordem correta.
+      const updatedConversations = await db.getConversationsForGroup(activeGroupId);
+      setConversations(updatedConversations);
       setActiveConversationId(newConversationId);
       currentConversationId = newConversationId;
     }
@@ -248,7 +314,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     await db.addChatMessage(modelPlaceholder);
     try {
       const selectedSources = allKnowledgeSources.filter(s => sourceIds.includes(s.id));
-      const response = await geminiService.generateContentWithSources(query, selectedSources);
+      const response = await geminiService.generateContentWithSources(promptForAI, selectedSources);
       const finalMessage: ChatMessage = { 
         ...modelPlaceholder, 
         text: response.text, 
@@ -262,6 +328,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       await db.updateChatMessage(modelPlaceholder.id, finalMessage);
     } catch (e: any) {
       const errorMessage: ChatMessage = { ...modelPlaceholder, text: `Erro: ${e.message}`, sender: MessageSender.SYSTEM, isLoading: false };
+      toast({
+        variant: "destructive",
+        title: "Erro na Resposta da IA",
+        description: e.message,
+      });
       setChatMessages(prev => prev.map(msg => msg.id === modelPlaceholder.id ? errorMessage : msg));
       await db.updateChatMessage(modelPlaceholder.id, errorMessage);
     } finally {
@@ -269,8 +340,56 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const handleOptimizePrompt = async (query: string, sourceIds: string[]) => {
+    if (!query.trim() || isLoading || !activeGroupId) return;
+    setIsLoading(true);
+    const { dismiss } = toast({
+      title: "Otimizando Prompt...",
+      description: "Aguarde enquanto a IA gera sugestões.",
+    });
+
+    // Adiciona a mensagem do usuário e um placeholder para o sistema
+    const userMessage: ChatMessage = { id: `user-${Date.now()}`, conversationId: activeConversationId || "temp", text: query, sender: MessageSender.USER, timestamp: new Date(), sourceIds };
+    const systemPlaceholder: ChatMessage = { id: `system-loading-${Date.now()}`, conversationId: activeConversationId || "temp", text: 'Otimizando prompt...', sender: MessageSender.SYSTEM, timestamp: new Date(), isLoading: true };
+    setChatMessages(prev => [...prev, userMessage, systemPlaceholder]);
+    // Não salvamos a mensagem do usuário ainda, pois a conversa pode não existir.
+
+    try {
+      const selectedSources = allKnowledgeSources.filter(s => sourceIds.includes(s.id));
+      const suggestions = await geminiService.generateOptimizedPrompts(query, selectedSources);
+      
+      const systemMessage: ChatMessage = {
+        id: `system-prompts-${Date.now()}`,
+        conversationId: activeConversationId || "temp",
+        text: "Aqui estão algumas sugestões para refinar sua pergunta:",
+        sender: MessageSender.SYSTEM,
+        timestamp: new Date(),
+        optimizedPrompts: suggestions,
+        sourceIds: sourceIds, // Carrega os sourceIds para a próxima etapa
+      };
+      // Substitui o placeholder pela mensagem final com as sugestões
+      setChatMessages(prev => prev.map(msg => msg.id === systemPlaceholder.id ? systemMessage : msg));
+      toast({
+        title: "Sugestões Prontas!",
+        description: "Escolha uma das opções para refinar sua pesquisa.",
+      });
+    } catch (e: any) {
+      const errorMessage: ChatMessage = { ...systemPlaceholder, text: `Erro ao otimizar: ${e.message}`, sender: MessageSender.SYSTEM, isLoading: false };
+      toast({
+        variant: "destructive",
+        title: "Erro ao Otimizar",
+        description: e.message,
+      });
+      setChatMessages(prev => prev.map(msg => msg.id === systemPlaceholder.id ? errorMessage : msg));
+    } finally { 
+      setIsLoading(false); 
+      dismiss();
+    }
+  };
+
   const handleGenerateMindMap = async (messageId: string, text: string) => {
     if (!activeConversationId) return;
+    const { dismiss } = toast({ title: "Gerando Mapa Mental..." });
 
     // Encontra a mensagem atual para verificar seu estado.
     const currentMessage = chatMessages.find(msg => msg.id === messageId);
@@ -281,6 +400,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const updatedMindMap = { ...existingMindMap, isVisible: !existingMindMap.isVisible };
       setChatMessages(prev => prev.map(msg => msg.id === messageId ? { ...msg, mindMap: updatedMindMap } : msg));
       await db.updateChatMessage(messageId, { mindMap: updatedMindMap });
+      dismiss();
       return;
     }
 
@@ -327,7 +447,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         } 
       });
     } catch (e: any) {
+      toast({
+        variant: "destructive",
+        title: "Erro no Mapa Mental",
+        description: e.message,
+      });
       updateMindMapState({ mindMap: { isVisible: true, isLoading: false, error: e.message, nodes: [], edges: [] } });
+    } finally {
+      if (!existingMindMap) { // Only dismiss if it was a new generation
+        dismiss();
+      }
     }
   };
 
@@ -350,8 +479,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     (activeConversationId === null && chatMessages.length === 0 ? "Nova Conversa" : "Navegador de Documentos");
 
   const value = {
-    conversations, groups, activeGroupId, activeConversationId, isSidebarOpen, chatMessages, isLoading, libraryItems, allKnowledgeSources, theme, activeGroup, sourcesForActiveGroup, chatPlaceholder, activeConversationName,
-    setTheme, setIsSidebarOpen, handleSetGroup, handleAddGroup, handleSetConversation, handleNewConversation, handleDeleteConversation, handleClearAllConversations, handleUrlAdd, handleFileAdd, handleRemoveSource, handleToggleSourceSelection, handleSaveToLibrary, handleDeleteLibraryItem, handleSendMessage, handleGenerateMindMap, handleMindMapLayoutChange
+    conversations, groups, activeGroupId, activeConversationId, isSidebarOpen, chatMessages, isLoading, libraryItems, allKnowledgeSources, libraryItemsForActiveContext, theme, activeGroup, sourcesForActiveGroup, chatPlaceholder, activeConversationName,
+    setTheme, setIsSidebarOpen, handleSetGroup, handleAddGroup, handleDeleteGroup, handleUpdateGroup, handleSetConversation, handleNewConversation, handleDeleteConversation, handleClearAllConversations, handleUrlAdd, handleFileAdd, handleRemoveSource, handleToggleSourceSelection, handleSaveToLibrary, handleDeleteLibraryItem, handleSendMessage, handleOptimizePrompt, handleGenerateMindMap, handleMindMapLayoutChange
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

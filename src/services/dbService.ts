@@ -103,8 +103,18 @@ export class MyDatabase extends Dexie {
   }
 
   async deleteKnowledgeGroup(groupId: string): Promise<void> {
-    // Transação para remover o grupo, suas fontes e suas conversas (e mensagens filhas)
-    // Esta lógica pode ser mais complexa dependendo das regras de negócio.
+    return this.transaction('rw', this.knowledgeGroups, this.conversations, this.chatMessages, async () => {
+      // 1. Encontra todas as conversas do grupo
+      const conversationsToDelete = await this.conversations.where('groupId').equals(groupId).toArray();
+      const conversationIds = conversationsToDelete.map(c => c.id);
+
+      // 2. Deleta todas as mensagens dessas conversas
+      await this.chatMessages.where('conversationId').anyOf(conversationIds).delete();
+
+      // 3. Deleta as conversas e o próprio grupo
+      await this.conversations.where('groupId').equals(groupId).delete();
+      await this.knowledgeGroups.delete(groupId);
+    });
   }
 
   // --- Métodos para Conversas e Mensagens ---
@@ -114,7 +124,7 @@ export class MyDatabase extends Dexie {
   }
 
   async getConversationsForGroup(groupId: string): Promise<Conversation[]> {
-    return this.conversations.where('groupId').equals(groupId).sortBy('timestamp');
+    return this.conversations.where('groupId').equals(groupId).reverse().sortBy('timestamp');
   }
 
   async addConversation(conversation: Conversation): Promise<string> {

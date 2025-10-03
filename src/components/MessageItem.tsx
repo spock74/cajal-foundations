@@ -4,12 +4,12 @@
  */
 
 import React, { useState } from 'react';
-import { marked } from 'marked';
+import { marked } from 'marked'; 
 import { markedHighlight } from "marked-highlight";
 import hljs from 'highlight.js';
 import MindMapWrapper from './MindMapDisplay';
-import { ChatMessage, MessageSender } from '../types';
-import { BrainCircuit, Bookmark, Copy, Check } from 'lucide-react';
+import { ChatMessage, MessageSender, OptimizedPrompt } from '../types';
+import { BrainCircuit, Bookmark, Copy, Check, Wand2 } from 'lucide-react';
 
 // Configure marked to use highlight.js for syntax highlighting
 marked.use(markedHighlight({
@@ -22,6 +22,7 @@ marked.use(markedHighlight({
 
 interface MessageItemProps {
   message: ChatMessage;
+  onSendMessage?: (query: string, sourceIds: string[], actualPrompt?: string) => void;
   onToggleMindMap?: (messageId: string, text: string) => void;
   onMindMapLayoutChange?: (messageId: string, layout: { expandedNodeIds?: string[], nodePositions?: { [nodeId: string]: { x: number, y: number } } }) => void;
   onSaveToLibrary?: (message: ChatMessage) => void;
@@ -64,7 +65,7 @@ const getStatusText = (status: string | undefined): string => {
   }
 };
 
-const MessageItem: React.FC<MessageItemProps> = ({ message, onToggleMindMap, onMindMapLayoutChange, onSaveToLibrary }) => {
+const MessageItem: React.FC<MessageItemProps> = ({ message, onSendMessage, onToggleMindMap, onMindMapLayoutChange, onSaveToLibrary }) => {
   const isUser = message.sender === MessageSender.USER;
   const isModel = message.sender === MessageSender.MODEL;
   const isSystem = message.sender === MessageSender.SYSTEM;
@@ -72,9 +73,34 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onToggleMindMap, onM
 
   const renderMessageContent = () => {
     if (isModel && !message.isLoading) {
-      const proseClasses = "prose prose-sm prose-gray dark:prose-invert w-full min-w-0"; 
+      const proseClasses = "prose prose-sm prose-slate dark:prose-invert max-w-none prose-p:my-2 prose-headings:my-3 prose-blockquote:my-2 prose-li:my-1 prose-code:text-sm"; 
       const rawMarkup = marked.parse(message.text || "") as string;
       return <div className={proseClasses} dangerouslySetInnerHTML={{ __html: rawMarkup }} />;
+    }
+
+    if (isSystem && message.optimizedPrompts) {
+      return (
+        <div>
+          <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">{message.text}</p>
+          <div className="space-y-2">
+            {message.optimizedPrompts.map((suggestion, index) => (
+              <button 
+                key={index}
+                onClick={() => onSendMessage && onSendMessage(suggestion.question_title, message.sourceIds || [], suggestion.prompt)}
+                className="w-full text-left flex items-center gap-3 p-3 rounded-lg bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 transition-colors"
+              >
+                <Wand2 className="h-5 w-5 text-purple-500 flex-shrink-0 mt-0.5" />
+                <div className="flex-grow">
+                  <p className="text-sm font-medium text-gray-800 dark:text-gray-100">{suggestion.question_title}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    {suggestion.description}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      );
     }
     
     let textColorClass = '';
@@ -101,7 +127,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onToggleMindMap, onM
   let bubbleClasses = "p-3 rounded-lg shadow w-full ";
 
   if (isUser) {
-    bubbleClasses += "bg-gradient-to-br from-blue-600 to-blue-800 text-white rounded-br-none";
+    bubbleClasses += "bg-blue-600 dark:bg-blue-900/80 text-white rounded-br-none";
   } else if (isModel) {
     bubbleClasses += `bg-white/80 dark:bg-gray-800/50 border border-black/5 dark:border-white/10 rounded-bl-none`;
   } else { // System message

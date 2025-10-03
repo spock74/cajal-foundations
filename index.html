@@ -11,9 +11,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   
-  <!-- Tailwind CSS via CDN (para desenvolvimento) -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  
   <!-- Syntax Highlighting Themes -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" id="hljs-dark-theme">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-light.min.css" id="hljs-light-theme" disabled>
@@ -21,6 +18,17 @@
   <!-- ReactFlow CSS -->
   <link rel="stylesheet" href="https://esm.sh/reactflow@^11.11.4/dist/style.css" />
   
+  <!-- Script de Bloqueio para Tema Escuro -->
+  <script>
+    (function() {
+      const theme = localStorage.getItem('theme');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (theme === 'dark' || (!theme && prefersDark)) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
+
   <!-- Nosso CSS Customizado -->
   <link rel="stylesheet" href="/index.css">
 

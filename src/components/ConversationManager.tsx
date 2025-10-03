@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { Conversation, KnowledgeSource, KnowledgeGroup } from '../types';
-import { Plus, Trash2, MessageSquare, X, Settings, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, MessageSquare, X, Check, Pencil } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -13,6 +13,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import KnowledgeBaseManager from './KnowledgeBaseManager';
 
 interface ConversationManagerProps {
@@ -21,6 +33,8 @@ interface ConversationManagerProps {
   activeGroupId: string | null;
   onSetGroupId: (id: string) => void;
   onAddGroup: (name: string) => void;
+  onDeleteGroup: (groupId: string) => void;
+  onUpdateGroup: (groupId: string, newName: string) => void;
   // Conversas
   conversations: Conversation[];
   activeConversationId: string | null;
@@ -43,6 +57,8 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
   activeGroupId,
   onSetGroupId,
   onAddGroup,
+  onDeleteGroup,
+  onUpdateGroup,
   conversations,
   activeConversationId,
   activeConversationSources,
@@ -58,6 +74,14 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
 }) => {
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [editingGroupName, setEditingGroupName] = useState('');
+  const [dialogState, setDialogState] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    onConfirm: () => void;
+  } | null>(null);
 
   const handleCreateGroup = () => {
     if (newGroupName.trim()) {
@@ -67,6 +91,54 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
     }
   };
 
+  const handleStartEditing = () => {
+    if (activeGroupId) {
+      setEditingGroupId(activeGroupId);
+      setEditingGroupName(groups.find(g => g.id === activeGroupId)?.name || '');
+    }
+  };
+
+  const handleCancelEditing = () => {
+    setEditingGroupId(null);
+    setEditingGroupName('');
+  };
+
+  const handleUpdateGroupName = () => {
+    if (editingGroupId && editingGroupName.trim()) {
+      onUpdateGroup(editingGroupId, editingGroupName.trim());
+      handleCancelEditing();
+    }
+  };
+
+  const confirmGroupDeletion = () => {
+    const group = groups.find(g => g.id === activeGroupId);
+    if (group) {
+      setDialogState({
+        isOpen: true,
+        title: `Apagar o tópico "${group.name}"?`,
+        description: "Esta ação é irreversível e removerá o tópico, todas as suas conversas e fontes associadas.",
+        onConfirm: () => onDeleteGroup(group.id),
+      });
+    }
+  };
+
+  const confirmDeletion = (type: 'single' | 'all', id?: string, name?: string) => {
+    if (type === 'single' && id && name) {
+      setDialogState({
+        isOpen: true,
+        title: `Apagar "${name}"?`,
+        description: "Esta ação não pode ser desfeita. A conversa e todas as suas mensagens serão permanentemente removidas.",
+        onConfirm: () => onDeleteConversation(id),
+      });
+    } else if (type === 'all') {
+      setDialogState({
+        isOpen: true,
+        title: "Apagar TODAS as conversas?",
+        description: "Esta ação não pode ser desfeita. Todas as conversas neste tópico serão permanentemente removidas.",
+        onConfirm: onClearAll,
+      });
+    }
+  };
   return (
     // Efeito de vidro fosco para o painel
     <div className="flex flex-col h-full bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl rounded-2xl border border-black/5 dark:border-white/5">
@@ -94,16 +166,20 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
 
       {/* Seletor de Grupos */}
       <div className="p-3 border-b border-gray-200 dark:border-[rgba(255,255,255,0.05)] flex-shrink-0">
-        <div className="flex justify-between items-center mb-1">
+        <div className="group flex justify-between items-center mb-1">
           <label className="block text-sm font-medium text-gray-500 dark:text-[#A8ABB4]">
             Tópico de Pesquisa
           </label>
           <div className="flex items-center gap-2">
-            <button onClick={() => {}} className="text-xs text-blue-600 dark:text-[#79B8FF] hover:text-black dark:hover:text-white font-medium"><Settings size={14}/></button>
-            <div className="w-px h-3 bg-gray-300 dark:bg-white/20"></div>
-            <button onClick={() => setIsCreatingGroup(true)} className="text-xs text-blue-600 dark:text-[#79B8FF] hover:text-black dark:hover:text-white font-medium">Novo</button>
+            <div className="flex items-center gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
+              <button onClick={confirmGroupDeletion} className="p-1 text-red-600 rounded-md hover:bg-red-500/10" title="Apagar Tópico"><Trash2 size={14}/></button>
+              <button onClick={handleStartEditing} className="p-1 text-blue-600 rounded-md hover:bg-blue-500/10" title="Editar Tópico"><Pencil size={14}/></button>
+            </div>
+            <div className="w-px h-4 bg-gray-300 dark:bg-white/20"></div>
+            <button onClick={() => setIsCreatingGroup(true)} className="text-xs text-blue-600 dark:text-[#79B8FF] hover:text-black dark:hover:text-white font-medium">NOVO</button>
           </div>
         </div>
+        <div>
         {isCreatingGroup ? (
           <div className="flex items-center gap-2">
             <input
@@ -118,21 +194,39 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
             <button onClick={handleCreateGroup} className="px-2.5 py-1 text-xs bg-gray-800 text-white rounded-md">Criar</button>
             <button onClick={() => setIsCreatingGroup(false)} className="px-2.5 py-1 text-xs text-gray-600 rounded-md">X</button>
           </div>
+        ) : editingGroupId ? (
+          <div className="flex items-center gap-2">
+            <Input
+              type="text"
+              value={editingGroupName}
+              onChange={(e) => setEditingGroupName(e.target.value)}
+              className="h-9 flex-grow"
+              onKeyPress={(e) => e.key === 'Enter' && handleUpdateGroupName()}
+              autoFocus
+            />
+            <Button onClick={handleUpdateGroupName} size="icon" className="h-9 w-9 flex-shrink-0 bg-green-600 hover:bg-green-700">
+              <Check size={16} />
+            </Button>
+            <Button onClick={handleCancelEditing} size="icon" variant="ghost" className="h-9 w-9 flex-shrink-0">
+              <X size={16} />
+            </Button>
+          </div>
         ) : (
           <Select value={activeGroupId || ''} onValueChange={onSetGroupId}>
             <SelectTrigger className="w-full h-9 text-sm bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10">
               <SelectValue placeholder="Selecione um tópico..." />
             </SelectTrigger>
-            <SelectContent container={document.body}>
+            <SelectContent>
               {groups.map(group => (
                 <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
         )}
+        </div>
       </div>
 
-      <div className="flex-shrink-0 p-2 border-b border-gray-200 dark:border-[rgba(255,255,255,0.05)] max-h-36 overflow-y-auto">
+      <div className="flex-shrink-0 p-2 max-h-36 overflow-y-auto">
         <ul className="space-y-1">
           {conversations.map(convo => (
             <li key={convo.id} className="flex items-center justify-between group rounded-md transition-colors hover:bg-gray-100 dark:hover:bg-white/5">
@@ -150,9 +244,7 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (window.confirm(`Tem certeza que deseja apagar a conversa "${convo.name}"?`)) {
-                    onDeleteConversation(convo.id);
-                  }
+                  confirmDeletion('single', convo.id, convo.name);
                 }}
                 className="p-2 flex-shrink-0 opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-500 transition-opacity"
                 title="Apagar conversa"
@@ -178,17 +270,30 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
 
       <div className="p-4 border-t border-gray-200 dark:border-[rgba(255,255,255,0.05)]">
         <button
-          onClick={() => {
-            if (window.confirm("Tem certeza que deseja apagar TODAS as conversas? Esta ação não pode ser desfeita.")) {
-              onClearAll();
-            }
-          }}
+          onClick={() => confirmDeletion('all')}
           className="w-full flex items-center justify-center gap-2 text-sm p-2 rounded-md text-red-600 bg-red-500/10 hover:bg-red-500/20 transition-colors"
         >
           <Trash2 size={16} />
           <span>Limpar Tudo</span>
         </button>
       </div>
+
+      {dialogState && (
+        <AlertDialog open={dialogState.isOpen} onOpenChange={(isOpen) => !isOpen && setDialogState(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{dialogState.title}</AlertDialogTitle>
+              <AlertDialogDescription>{dialogState.description}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setDialogState(null)}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={() => { dialogState.onConfirm(); setDialogState(null); }}>
+                Confirmar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 };

@@ -32,6 +32,12 @@ export interface MindMapData {
   nodePositions?: { [nodeId: string]: { x: number; y: number } };
 }
 
+export interface OptimizedPrompt {
+  question_title: string;
+  prompt: string;
+  description: string;
+}
+
 export interface Conversation {
   id: string;
   name: string;
@@ -49,6 +55,7 @@ export interface ChatMessage {
   urlContext?: UrlContextMetadataItem[];
   mindMap?: MindMapData;
   sourceIds?: string[];
+  optimizedPrompts?: OptimizedPrompt[];
   model?: string;
   usageMetadata?: UsageMetadata;
 }

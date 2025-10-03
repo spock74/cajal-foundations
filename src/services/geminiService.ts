@@ -13,7 +13,7 @@ import {
   type Tool,
   type GenerateContentResponse,
 } from "@google/genai";
-import type { UrlContextMetadataItem, KnowledgeSource } from '../types';
+import type { UrlContextMetadataItem, KnowledgeSource, OptimizedPrompt } from '../types';
 
 // --- DEFINIÇÕES DE TIPO E CONSTANTES ---
 const MODEL_NAME = "gemini-2.5-flash-lite";
@@ -92,7 +92,7 @@ public async generateContentWithSources(prompt: string, sources: KnowledgeSource
 
   try {
     // Sugestão: Tipar o resultado da chamada da API.
-    const result: GenerateContentResult = await this.genAI.models.generateContent({
+    const result: GenerateContentResponse = await this.genAI.models.generateContent({
       model: MODEL_NAME, // Corrected type name
       contents: contents, // A variável 'contents' está definida aqui. (Corrige o erro 1)
       config: {
@@ -110,7 +110,11 @@ public async generateContentWithSources(prompt: string, sources: KnowledgeSource
     
     const text = result.text; // Acessa o getter .text diretamente do resultado.
     const candidate = result.candidates?.[0];
-    const usageMetadata = result.usageMetadata;
+    const usageMetadata = result.usageMetadata ? {
+      promptTokenCount: result.usageMetadata.promptTokenCount ?? 0,
+      candidatesTokenCount: result.usageMetadata.candidatesTokenCount ?? 0,
+      totalTokenCount: result.usageMetadata.totalTokenCount ?? 0,
+    } : undefined;
 
     let extractedUrlContextMetadata: UrlContextMetadataItem[] | undefined = undefined;
     if (candidate?.urlContextMetadata?.urlMetadata) {
@@ -127,43 +131,6 @@ public async generateContentWithSources(prompt: string, sources: KnowledgeSource
     throw this.handleError(error, 'generateContentWithSources');
   }
 }
-
-  //public async generateContentWithSources(prompt: string, sources: KnowledgeSource[]): Promise<GeminiResponse> {
-  //  const urls = sources.filter(s => s.type === 'url').map(s => s.value);
-  //  
-  //  const textPrompt = urls.length > 0 ? `${prompt}\n\nFontes:\n${urls.join('\n')}` : prompt;
-  //  const userParts: any[] = [{ text: textPrompt }];
-  //  const contents: any[] = [{ role: "user", parts: userParts }];
-  //  const tools: any[] = urls.length > 0 ? [{ googleSearch: {} }] : []; // CORREÇÃO: A ferramenta é `googleSearch`.
-//
-  //  try {
-  //    const result = await this.genAI.models.generateContent({
-  //      model: MODEL_NAME,
-  //      contents: contents,
-  //      config: {
-  //        tools: tools.length > 0 ? tools : undefined,
-  //        safetySettings: this.safetySettings,
-  //      },
-  //    });
-//
-  //    const response = result.response;
-  //    const text = response.text;
-  //    const candidate = response.candidates?.[0];
-  //    let extractedUrlContextMetadata: UrlContextMetadataItem[] | undefined = undefined;
-//
-  //    if (candidate?.urlContextMetadata?.urlMetadata) {
-  //      extractedUrlContextMetadata = candidate.urlContextMetadata.urlMetadata.map((meta: any) => ({
-  //        retrievedUrl: meta.retrievedUrl || meta.retrieved_url,
-  //        urlRetrievalStatus: meta.urlRetrievalStatus || meta.url_retrieval_status,
-  //      }));
-  //    }
-//
-  //    return { text, urlContextMetadata: extractedUrlContextMetadata, usageMetadata: response.usageMetadata };
-  //  } catch (error) {
-  //    console.error("Erro no generateContentWithSources:", error);
-  //    throw new Error(`Falha ao obter resposta da IA: ${error instanceof Error ? error.message : "Erro desconhecido"}`);
-  //  }
-  //}
 
   public async getInitialSuggestions(sources: KnowledgeSource[]): Promise<string[]> {
     const urls = sources.filter(s => s.type === 'url').map(s => s.value);
@@ -238,6 +205,71 @@ public async generateContentWithSources(prompt: string, sources: KnowledgeSource
     } catch (error) {
       console.error("Falha ao gerar título, usando fallback:", error);
       return "Nova Conversa";
+    }
+  }
+
+  public async generateOptimizedPrompts(humanPrompt: string, sources: KnowledgeSource[]): Promise<OptimizedPrompt[]> {
+    const sourcesContent = sources
+      .filter((s): s is Extract<KnowledgeSource, { type: 'file' }> => s.type === 'file' && !!s.content)
+      .map(source => `Fonte (Arquivo: ${source.name}):\n---\n${source.content}\n---\n\n`)
+      .join('');
+
+    const metaPromptTemplate = `# CONTEXTO E OBJETIVO
+Você é um assistente de pesquisa especialista em engenharia de prompt. Sua função é analisar um prompt inicial de um usuário e, com base em um conjunto de documentos científicos, gerar múltiplas opções de prompts refinados para que o usuário possa escolher a abordagem que melhor atende à sua necessidade.
+
+# FONTES DE DADOS
+Considere estritamente os textos abaixo como sua única fonte de conhecimento:
+{sources_content}
+
+# PROMPT ORIGINAL DO USUÁRIO
+Agora, analise o seguinte prompt do usuário:
+{human_prompt}
+
+# SUAS INSTRUÇÕES
+
+1.  **Pense Passo a Passo:** Primeiro, analise o \`{human_prompt}\` e identifique as possíveis intenções, ambiguidades ou direções que ele pode tomar, sempre em relação ao conteúdo disponível em \`{sources_content}\`.
+
+2.  **Identifique Aspectos Distintos:** Elabore até 5 "aspectos" ou interpretações diferentes para a solicitação do usuário, variando em foco analítico, intenção, formato, etc.
+
+3.  **Crie Prompts Otimizados:** Para cada aspecto identificado, componha um "prompt otimizado" que seja auto-contido e inclua persona, instrução clara e formato de saída.
+
+4.  **Crie um Título para a Pergunta (\`question_title\`):** Para cada aspecto, crie um título curto e direto (2 a 4 palavras) que resuma a natureza da resposta. Este título será usado como o texto de um botão na interface do chat, então ele deve ser claro e conciso. Pense nele como uma "etiqueta" para a opção. Bons exemplos: "Resumo Técnico", "Análise de Implicações", "Explicação Simplificada", "Comparativo de Modelos".
+
+5.  **Escreva Descrições Focadas na Ação e no Benefício (\`description\`):** Para cada aspecto, crie uma descrição que siga as seguintes regras:
+    * **Comece com Ação:** Inicie com um verbo de ação (Ex: "Receba", "Analise") ou descrevendo o resultado (Ex: "Um resumo técnico...").
+    * **Oculte a Mecânica:** NUNCA use as palavras "prompt", "opção", "alternativa", ou "escolha".
+    * **Foque no Benefício:** Em vez de nomear um público (Ex: "para especialistas"), descreva o interesse que a resposta satisfaz (Ex: "Ideal se você precisa dos detalhes técnicos...").
+
+6.  **Tratamento de Exceção:** Se o \`{human_prompt}\` for vago ou desconectado do \`{sources_content}\`, gere apenas uma opção de prompt com um título e descrição apropriados que sugiram um resumo geral.
+
+7.  **Formato de Saída:** Sua resposta final deve ser um objeto JSON válido, sem nenhum texto ou explicação adicional fora dele. A estrutura deve ser exatamente:
+{"optimized_prompts": [
+    {
+        "question_title": "...",
+        "description": "...",
+        "prompt": "..."
+    }
+]}`;
+
+    const metaPrompt = metaPromptTemplate
+      .replace('{sources_content}', sourcesContent || "Nenhuma fonte de arquivo fornecida.")
+      .replace('{human_prompt}', humanPrompt);
+
+    try {
+      const result = await this.genAI.models.generateContent({
+        model: MODEL_NAME,
+        contents: [{ role: 'user', parts: [{ text: metaPrompt }] }],
+        config: {
+          safetySettings: this.safetySettings,
+          responseMimeType: "application/json",
+        },
+      });
+
+      const parsed = JSON.parse(result.text);
+      if (!parsed.optimized_prompts) throw new Error("A resposta da IA não contém 'optimized_prompts'.");
+      return parsed.optimized_prompts;
+    } catch (error) {
+      throw this.handleError(error, 'generateOptimizedPrompts');
     }
   }
 }

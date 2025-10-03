@@ -4,8 +4,10 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Trash2, Upload, FileText, AlertCircle, CheckCircle } from 'lucide-react';
+import { Plus, Trash2, Upload, FileText, AlertCircle, CheckCircle, Link } from 'lucide-react';
 import { KnowledgeSource } from '../types';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 interface KnowledgeBaseManagerProps {
   sources: KnowledgeSource[];
@@ -85,20 +87,25 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
     <div className="p-4 h-full flex flex-col transition-colors duration-200">
       <h3 className="text-base font-semibold text-gray-800 dark:text-[#E2E2E2] mb-3 flex-shrink-0">Fontes da Conversa</h3>
       <div className="flex items-center gap-2 mb-3 flex-shrink-0">
-        <input
-          type="url"
-          value={currentUrlInput}
-          onChange={(e) => setCurrentUrlInput(e.target.value)}
-          placeholder="https://exemplo.com/artigo.pdf"
-          className="flex-grow h-8 py-1 px-2.5 border border-gray-300 dark:border-[rgba(255,255,255,0.1)] bg-gray-100 dark:bg-[#2C2C2C] text-gray-800 dark:text-[#E2E2E2] placeholder-gray-400 dark:placeholder-[#777777] rounded-lg focus:ring-1 focus:ring-blue-500 dark:focus:ring-white/20 transition-shadow text-sm"
-          onKeyPress={(e) => e.key === 'Enter' && handleAddUrl()}
-          disabled={sources.length >= maxSources}
-        />
-        <button onClick={handleAddUrl} disabled={sources.length >= maxSources} className="h-8 w-8 p-1.5 bg-gray-800 hover:bg-black dark:bg-white/[.12] dark:hover:bg-white/20 text-white rounded-lg transition-colors disabled:bg-gray-300 dark:disabled:bg-[#4A4A4A] flex items-center justify-center flex-shrink-0"><Plus size={16} /></button>
+        <div className="relative flex-grow">
+          <Link className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="url"
+            value={currentUrlInput}
+            onChange={(e) => setCurrentUrlInput(e.target.value)}
+            placeholder="https://exemplo.com/artigo.pdf"
+            className="h-9 pl-8"
+            onKeyPress={(e) => e.key === 'Enter' && handleAddUrl()}
+            disabled={sources.length >= maxSources}
+          />
+        </div>
+        <Button onClick={handleAddUrl} disabled={sources.length >= maxSources} size="icon" className="h-9 w-9 flex-shrink-0">
+          <Plus size={16} />
+        </Button>
         <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".pdf,.txt,.md,text/plain,text/markdown" className="hidden" aria-hidden="true" />
-        <button onClick={handleUploadClick} disabled={sources.length >= maxSources} className="h-8 w-8 p-1.5 bg-gray-800 hover:bg-black dark:bg-white/[.12] dark:hover:bg-white/20 text-white rounded-lg transition-colors disabled:bg-gray-300 dark:disabled:bg-[#4A4A4A] flex items-center justify-center flex-shrink-0">
+        <Button onClick={handleUploadClick} disabled={sources.length >= maxSources} size="icon" variant="outline" className="h-9 w-9 flex-shrink-0">
           <Upload size={16} />
-        </button>
+        </Button>
       </div>
       
       {successMessage && ( <div className="flex items-start gap-1.5 text-xs text-green-600 dark:text-green-400 mb-2 p-2 bg-green-500/10 dark:bg-green-500/10 rounded-md border border-green-500/20"><CheckCircle size={16} /><span>{successMessage}</span></div> )}
@@ -131,9 +138,9 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
                   )}
                 </div>
             </div>
-            <button onClick={() => onRemoveSource(source.id)} className="p-1 text-gray-500 dark:text-[#A8ABB4] hover:text-red-500 dark:hover:text-[#f87171] rounded-md hover:bg-red-500/10 dark:hover:bg-[rgba(255,0,0,0.1)] transition-colors flex-shrink-0 ml-2">
+            <Button onClick={() => onRemoveSource(source.id)} variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0 ml-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
               <Trash2 size={16} />
-            </button>
+            </Button>
           </div>
         ))}
       </div>

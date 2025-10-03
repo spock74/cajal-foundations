@@ -8,14 +8,15 @@ import { useAppContext } from "../AppContext";
 import ConversationManager from "./ConversationManager";
 import ChatInterface from "./ChatInterface"; 
 import LibraryPanel from "./LibraryPanel";
+import { Toaster } from "@/components/ui/toaster";
 
 const App: React.FC = () => {
   const {
-    groups, activeGroupId, handleSetGroup, handleAddGroup,
+    groups, activeGroupId, handleSetGroup, handleAddGroup, handleDeleteGroup, handleUpdateGroup,
     conversations, activeConversationId, handleSetConversation, handleNewConversation, handleDeleteConversation, handleClearAllConversations,
     sourcesForActiveGroup, handleUrlAdd, handleFileAdd, handleRemoveSource, handleToggleSourceSelection,
     chatMessages, isLoading, handleSendMessage,
-    libraryItems, handleDeleteLibraryItem, handleSaveToLibrary,
+    libraryItemsForActiveContext, handleDeleteLibraryItem, handleSaveToLibrary, handleOptimizePrompt,
     theme, setTheme,
     isSidebarOpen, setIsSidebarOpen,
     chatPlaceholder, activeConversationName, handleGenerateMindMap,
@@ -38,6 +39,8 @@ const App: React.FC = () => {
               activeGroupId={activeGroupId}
               onSetGroupId={handleSetGroup}
               onAddGroup={handleAddGroup}
+              onDeleteGroup={handleDeleteGroup}
+              onUpdateGroup={handleUpdateGroup}
               conversations={conversations}
               activeConversationId={activeConversationId}
               activeConversationSources={sourcesForActiveGroup} // Esta prop vem do contexto agora
@@ -59,6 +62,7 @@ const App: React.FC = () => {
               activeSources={sourcesForActiveGroup}
               conversationTitle={activeConversationName}
               onSendMessage={handleSendMessage}
+              onOptimizePrompt={handleOptimizePrompt}
               isLoading={isLoading}
               placeholderText={chatPlaceholder}
               onToggleSidebar={() => setIsSidebarOpen(true)}
@@ -71,9 +75,10 @@ const App: React.FC = () => {
 
           </div>
           <div className="hidden lg:block lg:w-1/4 xl:w-1/5 h-full">
-            <LibraryPanel items={libraryItems} onDeleteItem={handleDeleteLibraryItem} />
+            <LibraryPanel items={libraryItemsForActiveContext} onDeleteItem={handleDeleteLibraryItem} />
           </div>
         </div>
+        <Toaster />
       </div>
     </>
   );
