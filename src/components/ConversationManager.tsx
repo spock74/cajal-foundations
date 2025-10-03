@@ -42,7 +42,7 @@ interface ConversationManagerProps {
   onNewConversation: () => void;
   onDeleteConversation: (id: string) => void;
   // Fontes
-  activeConversationSources: KnowledgeSource[];
+  sourcesForActiveGroup: KnowledgeSource[];
   onUrlAdd: (url: string) => void;
   onFileAdd: (file: File) => void;
   onRemoveSource: (sourceId: string) => void;
@@ -61,7 +61,7 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
   onUpdateGroup,
   conversations,
   activeConversationId,
-  activeConversationSources,
+  sourcesForActiveGroup,
   onSetConversationId,
   onNewConversation,
   onDeleteConversation,
@@ -88,6 +88,20 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
       onAddGroup(newGroupName.trim());
       setNewGroupName('');
       setIsCreatingGroup(false);
+    }
+  };
+
+  const handleNewConversationClick = () => {
+    const anySourceSelected = sourcesForActiveGroup.some(s => s.selected);
+    if (sourcesForActiveGroup.length > 0 && !anySourceSelected) {
+      setDialogState({
+        isOpen: true,
+        title: "Nenhuma fonte selecionada",
+        description: "Para iniciar uma nova conversa, por favor, selecione pelo menos uma fonte de conhecimento na lista abaixo.",
+        onConfirm: () => setDialogState(null), // Apenas fecha o diálogo
+      });
+    } else {
+      onNewConversation();
     }
   };
 
@@ -146,8 +160,8 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
         <h2 className="text-lg font-semibold text-gray-800 dark:text-[#E2E2E2]">Conversas</h2>
         <div className="flex items-center gap-2">
           <button
-            onClick={onNewConversation}
-            className="p-1.5 text-gray-500 dark:text-[#A8ABB4] hover:text-black dark:hover:text-white rounded-md hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+            onClick={handleNewConversationClick}
+            className="p-1.5 rounded-md bg-green-900/80 text-white hover:bg-green-900 transition-colors"
             title="Nova Conversa"
           >
             <Plus size={18} />
@@ -257,15 +271,19 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
       </div>
 
       <div className="flex-grow min-h-0">
-        {activeGroupId ? (
+        {activeGroupId && activeConversationId ? (
           <KnowledgeBaseManager
-            sources={activeConversationSources}
+            sources={sourcesForActiveGroup}
             onUrlAdd={onUrlAdd}
             onFileAdd={onFileAdd}
             onRemoveSource={onRemoveSource}
             onToggleSourceSelection={onToggleSourceSelection}
           />
-        ) : null}
+        ) : (
+          <div className="p-4 h-full flex items-center justify-center text-center">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Selecione uma conversa existente ou clique em '+' para iniciar uma nova.</p>
+          </div>
+        )}
       </div>
 
       <div className="p-4 border-t border-gray-200 dark:border-[rgba(255,255,255,0.05)]">
@@ -286,10 +304,10 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
               <AlertDialogDescription>{dialogState.description}</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setDialogState(null)}>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={() => { dialogState.onConfirm(); setDialogState(null); }}>
-                Confirmar
-              </AlertDialogAction>
+              {dialogState.onConfirm.name === 'onClearAll' || dialogState.onConfirm.name.includes('onDelete') ? (
+                <AlertDialogCancel onClick={() => setDialogState(null)}>Cancelar</AlertDialogCancel>
+              ) : null}
+              <AlertDialogAction onClick={() => { dialogState.onConfirm(); setDialogState(null); }}>Ok</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

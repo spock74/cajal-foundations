@@ -114,7 +114,7 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
       
       <div className="flex-grow overflow-y-auto space-y-2 chat-container min-h-0">
         {sources.length === 0 && (
-          <p className="text-gray-500 dark:text-[#777777] text-center py-3 text-sm">Adicione fontes a esta conversa para começar.</p>
+          <p className="text-gray-500 dark:text-[#777777] text-center py-3 text-sm">Adicione fontes a este tópico para começar.</p>
         )}
         {sources.map((source) => (
           <div key={source.id} className="flex items-center justify-between p-2.5 bg-gray-100 dark:bg-[#2C2C2C] border border-gray-200 dark:border-[rgba(255,255,255,0.05)] rounded-lg">

@@ -43,7 +43,7 @@ const App: React.FC = () => {
               onUpdateGroup={handleUpdateGroup}
               conversations={conversations}
               activeConversationId={activeConversationId}
-              activeConversationSources={sourcesForActiveGroup} // Esta prop vem do contexto agora
+              sourcesForActiveGroup={sourcesForActiveGroup}
               onSetConversationId={handleSetConversation}
               onNewConversation={handleNewConversation}
               onDeleteConversation={handleDeleteConversation}
