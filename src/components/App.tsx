@@ -9,7 +9,9 @@ import ConversationManager from "./ConversationManager";
 import ChatInterface from "./ChatInterface"; 
 import LibraryPanel from "./LibraryPanel";
 import { Toaster } from "@/components/ui/toaster";
+import { EvaluationPanel } from "@/components/EvaluationPanel";
 import UsageReportPanel, { ModelUsage } from "@/components/UsageReportPanel";
+import { sampleQuizData } from "./sampleQuiz";
 
 const App: React.FC = () => {
   const {
@@ -20,7 +22,8 @@ const App: React.FC = () => {
     libraryItemsForActiveContext, handleDeleteLibraryItem, handleOpenLibraryItem, handleSaveToLibrary, handleOptimizePrompt, activeModel, handleSetModel, generateUsageReport,
     theme, setTheme,
     isSidebarOpen, setIsSidebarOpen,
-    chatPlaceholder, activeConversationName, handleGenerateMindMap,
+    chatPlaceholder, activeConversationName, handleGenerateMindMap, handleStartEvaluation,
+    isEvaluationPanelOpen, activeQuizData, handleCloseEvaluation,
     handleMindMapLayoutChange
   } = useAppContext();
 
@@ -87,7 +90,13 @@ const App: React.FC = () => {
 
           </div>
           <div className="hidden lg:block lg:w-1/4 xl:w-1/5 h-full">
-            <LibraryPanel items={libraryItemsForActiveContext} onDeleteItem={handleDeleteLibraryItem} onItemClick={handleOpenLibraryItem} onOpenReport={handleOpenReportPanel} />
+            <LibraryPanel 
+              items={libraryItemsForActiveContext} 
+              onDeleteItem={handleDeleteLibraryItem} 
+              onItemClick={handleOpenLibraryItem} 
+              onOpenReport={handleOpenReportPanel} 
+              onStartEvaluation={() => handleStartEvaluation(sampleQuizData)}
+            />
           </div>
         </div>
         <Toaster />
@@ -95,6 +104,11 @@ const App: React.FC = () => {
           isOpen={isReportPanelOpen}
           onClose={() => setIsReportPanelOpen(false)}
           data={reportData}
+        />
+        <EvaluationPanel 
+          isOpen={isEvaluationPanelOpen}
+          onClose={handleCloseEvaluation}
+          quizData={activeQuizData}
         />
       </div>
     </>

@@ -11,6 +11,7 @@ import {
   KnowledgeGroup,
   KnowledgeSource,
   LibraryItem,
+  QuizData,
 } from './types';
 import { DEFAULT_MODEL, models as modelInfoConfig } from './components/models';
 import { geminiService } from './services/geminiService';
@@ -35,6 +36,8 @@ interface AppContextState {
   chatPlaceholder: string;
   activeConversationName: string;
   activeModel: string;
+  isEvaluationPanelOpen: boolean;
+  activeQuizData: QuizData | null;
 }
 
 interface AppContextActions {
@@ -61,6 +64,8 @@ interface AppContextActions {
   generateUsageReport: () => Promise<any[]>; // Retorna os dados para o painel
   handleSetModel: (modelName: string) => void;
   handleMindMapLayoutChange: (messageId: string, layout: { expandedNodeIds?: string[], nodePositions?: { [nodeId: string]: { x: number, y: number } } }) => void;
+  handleStartEvaluation: (quizData: QuizData) => void;
+  handleCloseEvaluation: () => void;
 }
 
 type AppContextType = AppContextState & AppContextActions;
@@ -80,6 +85,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [activeModel, setActiveModel] = useState<string>(() => {
     return localStorage.getItem('activeModel') || DEFAULT_MODEL;
   });
+
+  // Estado para o painel de avaliação
+  const [isEvaluationPanelOpen, setIsEvaluationPanelOpen] = useState(false);
+  const [activeQuizData, setActiveQuizData] = useState<QuizData | null>(null);
 
 
   const { toast } = useToast();
@@ -563,10 +572,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       (activeConversationId === null && chatMessages.length === 0 ? "Nova Conversa" : "Navegador de Documentos"), 
   [conversations, activeConversationId, chatMessages.length]);
 
+  const handleStartEvaluation = useCallback((quizData: QuizData) => {
+    setActiveQuizData(quizData);
+    setIsEvaluationPanelOpen(true);
+  }, []);
+
+  const handleCloseEvaluation = useCallback(() => {
+    setIsEvaluationPanelOpen(false);
+    // Atraso para permitir a animação de saída antes de limpar os dados
+    setTimeout(() => setActiveQuizData(null), 300);
+  }, []);
+
   const value = useMemo(() => ({
-      conversations, groups, activeGroupId, activeConversationId, isSidebarOpen, chatMessages, isLoading, libraryItems, allKnowledgeSources, libraryItemsForActiveContext, theme, activeGroup, sourcesForActiveGroup, chatPlaceholder, activeConversationName, activeModel, 
-      setTheme, setIsSidebarOpen, handleSetGroup, handleAddGroup, handleDeleteGroup, handleUpdateGroup, handleSetConversation, handleNewConversation, handleDeleteConversation, handleClearAllConversations, handleUrlAdd, handleFileAdd, handleRemoveSource, handleToggleSourceSelection, handleSaveToLibrary, handleDeleteLibraryItem, handleOpenLibraryItem, handleSendMessage, handleOptimizePrompt, handleGenerateMindMap, generateUsageReport, handleSetModel, handleMindMapLayoutChange
-  }), [conversations, groups, activeGroupId, activeConversationId, isSidebarOpen, chatMessages, isLoading, libraryItems, allKnowledgeSources, libraryItemsForActiveContext, theme, activeGroup, sourcesForActiveGroup, chatPlaceholder, activeConversationName, activeModel, handleSetGroup, handleAddGroup, handleDeleteGroup, handleUpdateGroup, handleSetConversation, handleNewConversation, handleDeleteConversation, handleClearAllConversations, handleUrlAdd, handleFileAdd, handleRemoveSource, handleToggleSourceSelection, handleSaveToLibrary, handleDeleteLibraryItem, handleOpenLibraryItem, handleSendMessage, handleOptimizePrompt, handleGenerateMindMap, generateUsageReport, handleSetModel, handleMindMapLayoutChange]);
+      conversations, groups, activeGroupId, activeConversationId, isSidebarOpen, chatMessages, isLoading, libraryItems, allKnowledgeSources, libraryItemsForActiveContext, theme, activeGroup, sourcesForActiveGroup, chatPlaceholder, activeConversationName, activeModel, isEvaluationPanelOpen, activeQuizData,
+      setTheme, setIsSidebarOpen, handleSetGroup, handleAddGroup, handleDeleteGroup, handleUpdateGroup, handleSetConversation, handleNewConversation, handleDeleteConversation, handleClearAllConversations, handleUrlAdd, handleFileAdd, handleRemoveSource, handleToggleSourceSelection, handleSaveToLibrary, handleDeleteLibraryItem, handleOpenLibraryItem, handleSendMessage, handleOptimizePrompt, handleGenerateMindMap, generateUsageReport, handleSetModel, handleMindMapLayoutChange, handleStartEvaluation, handleCloseEvaluation
+  }), [conversations, groups, activeGroupId, activeConversationId, isSidebarOpen, chatMessages, isLoading, libraryItems, allKnowledgeSources, libraryItemsForActiveContext, theme, activeGroup, sourcesForActiveGroup, chatPlaceholder, activeConversationName, activeModel, isEvaluationPanelOpen, activeQuizData, handleSetGroup, handleAddGroup, handleDeleteGroup, handleUpdateGroup, handleSetConversation, handleNewConversation, handleDeleteConversation, handleClearAllConversations, handleUrlAdd, handleFileAdd, handleRemoveSource, handleToggleSourceSelection, handleSaveToLibrary, handleDeleteLibraryItem, handleOpenLibraryItem, handleSendMessage, handleOptimizePrompt, handleGenerateMindMap, generateUsageReport, handleSetModel, handleMindMapLayoutChange, handleStartEvaluation, handleCloseEvaluation]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

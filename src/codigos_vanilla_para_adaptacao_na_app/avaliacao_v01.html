@@ -3,112 +3,148 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Avaliação Diagnóstica - Cardiologia</title>
+    <title>Avaliação Diagnóstica - Cardiologia (Sequencial)</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             line-height: 1.6;
             margin: 0;
             padding: 20px;
-            background-color: #f4f7f9;
+            background-color: #f0f4f8;
             color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
         }
-        #quiz-container {
+        #app-container {
+            width: 100%;
             max-width: 800px;
-            margin: 0 auto;
             background: #fff;
             padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border-radius: 12px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.08);
         }
         h1 {
-            color: #2c3e50;
+            color: #1a3b5d;
             text-align: center;
+            margin-bottom: 2em;
         }
-        .question-block {
-            margin-bottom: 30px;
-            padding-bottom: 20px;
+        #question-display {
+            min-height: 300px;
+        }
+        .question-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
             border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 10px;
+        }
+        .question-counter {
+            font-size: 0.9em;
+            color: #777;
         }
         .question-text {
-            font-size: 1.1em;
-            font-weight: bold;
-            margin-bottom: 15px;
+            font-size: 1.2em;
+            font-weight: 500;
+            margin-bottom: 20px;
         }
         .options-list {
             list-style: none;
             padding: 0;
         }
-        .options-list li {
+        .options-list li label {
+            display: block;
             margin-bottom: 10px;
-            padding: 10px;
+            padding: 15px;
             border: 1px solid #ccc;
-            border-radius: 5px;
+            border-radius: 8px;
             cursor: pointer;
-            transition: background-color 0.2s;
+            transition: all 0.2s ease-in-out;
         }
-        .options-list li:hover {
-            background-color: #f0f0f0;
+        .options-list li label:hover {
+            background-color: #f0f8ff;
+            border-color: #5dade2;
         }
         .options-list input[type="radio"] {
-            margin-right: 10px;
+            margin-right: 12px;
         }
-        #submit-btn {
+        .feedback-correct {
+            background-color: #e8f5e9 !important;
+            border-color: #4caf50 !important;
+        }
+        .feedback-incorrect {
+            background-color: #ffebee !important;
+            border-color: #f44336 !important;
+        }
+        .rationale {
+            margin-top: 15px;
+            font-size: 0.9em;
+            padding: 12px;
+            background-color: #f9f9f9;
+            border: 1px solid #eee;
+            border-radius: 5px;
+        }
+        .hint-container {
+            margin: 15px 0;
+        }
+        .hint-btn {
+            background: none;
+            border: 1px solid #aab7c4;
+            color: #555;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8em;
+        }
+        .hint-text {
+            display: none;
+            margin-top: 10px;
+            padding: 10px;
+            background: #fffbe6;
+            border: 1px solid #ffecb3;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        #next-btn {
             display: block;
             width: 100%;
             padding: 15px;
-            font-size: 1.2em;
+            margin-top: 20px;
+            font-size: 1.1em;
             font-weight: bold;
             color: #fff;
             background-color: #3498db;
             border: none;
-            border-radius: 5px;
+            border-radius: 8px;
             cursor: pointer;
             transition: background-color 0.2s;
         }
-        #submit-btn:hover {
+        #next-btn:hover {
             background-color: #2980b9;
         }
-        #results-container {
-            margin-top: 30px;
+        #next-btn:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
         }
-        .result-item {
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 10px;
-        }
-        .correct {
-            background-color: #e8f5e9; /* Verde claro */
-            border-left: 5px solid #4caf50; /* Verde */
-        }
-        .incorrect {
-            background-color: #ffebee; /* Vermelho claro */
-            border-left: 5px solid #f44336; /* Vermelho */
-        }
-        .rationale {
-            margin-top: 10px;
-            font-size: 0.9em;
-            color: #555;
-            padding: 10px;
-            background-color: #fafafa;
-            border-radius: 4px;
+        #results-display {
+            text-align: center;
         }
     </style>
 </head>
 <body>
 
-    <div id="quiz-container">
-        <h1>Avaliação sobre Tópicos em Cardiologia</h1>
-        <form id="quiz-form">
-            </form>
-        <button id="submit-btn">Corrigir Avaliação</button>
-        <div id="results-container"></div>
+    <div id="app-container">
+        <h1>Avaliação Diagnóstica</h1>
+        <div id="question-display">
+            </div>
+        <div id="results-display" style="display: none;">
+             </div>
+        <button id="next-btn">Verificar Resposta</button>
     </div>
 
     <script>
-        // --- INÍCIO: DADOS GERADOS PELA IA (JSON) ---
-        // Na sua aplicação real, você faria uma chamada de API para obter este JSON.
-        // Aqui, nós o colocamos diretamente para fins de demonstração.
         const quizData = {
           "questions": [
             { "questionNumber": 1, "question": "De acordo com o estudo de Ahmed et al., qual é a conclusão principal sobre o uso de inibidores da ECA (IECA) ou bloqueadores dos receptores da angiotensina (BRA) em pacientes idosos com insuficiência cardíaca diastólica (ICD)?", "answerOptions": [ { "text": "Reduzem significativamente as hospitalizações por insuficiência cardíaca em todos os pacientes com ICD.", "rationale": "O estudo não encontrou uma associação significativa entre o uso destes medicamentos e a redução de hospitalizações especificamente por insuficiência cardíaca.", "isCorrect": false }, { "text": "Aumentam o risco de mortalidade em pacientes com doença renal crónica (DRC) devido a efeitos adversos renais.", "rationale": "Pelo contrário, o estudo sugere que os medicamentos são seguros e benéficos neste subgrupo, apesar das preocupações teóricas sobre a função renal.", "isCorrect": false }, { "text": "Estão associados a uma redução significativa da mortalidade por todas as causas em pacientes com ICD e DRC concomitante.", "rationale": "Este é o principal achado do estudo, demonstrando um benefício de sobrevida (HR de 0.82) neste subgrupo específico, um efeito que não foi observado em pacientes sem DRC.", "isCorrect": true }, { "text": "O seu benefício é universal, aplicando-se igualmente a pacientes com e sem doença renal crónica.", "rationale": "O estudo destaca uma heterogeneidade de efeito, onde o benefício de mortalidade foi observado no grupo com DRC, mas não no grupo sem DRC.", "isCorrect": false } ], "hint": "Considere como a presença de doença renal crónica (DRC) modifica o efeito da terapia." },
@@ -123,91 +159,135 @@
             { "questionNumber": 10, "question": "Analisando os quatro artigos em conjunto, qual é o tema comum mais forte que conecta a patofisiologia da HFpEF e os potenciais benefícios de intervenções tão diversas como estatinas, vacinas e inibidores de SGLT2?", "answerOptions": [ { "text": "A redução da frequência cardíaca.", "rationale": "A redução da frequência cardíaca não é o mecanismo de ação primário ou unificador para estatinas, vacinas ou inibidores de SGLT2.", "isCorrect": false }, { "text": "A modulação da inflamação e da disfunção endotelial.", "rationale": "Este é o elo comum. A HFpEF é descrita como um estado pró-inflamatório. As vacinas previnem gatilhos inflamatórios (infecções), as estatinas têm efeitos pleiotrópicos anti-inflamatórios e de melhora endotelial, e os inibidores de SGLT2 também demonstraram reduzir marcadores inflamatórios.", "isCorrect": true }, { "text": "O aumento direto da complacência da titina.", "rationale": "Embora a rigidez da titina seja um alvo, apenas terapias muito específicas (como a metformina ou os moduladores de PKG) atuam diretamente sobre ela; não é um mecanismo comum a todas estas intervenções.", "isCorrect": false }, { "text": "A inibição da hipercontratilidade do sarcómero.", "rationale": "Este é o mecanismo específico dos inibidores da miosina e não se aplica a estatinas, vacinas ou inibidores do RAAS como um efeito primário.", "isCorrect": false } ], "hint": "Pense no processo sistémico, e não apenas cardíaco, que é um fator conhecido de risco cardiovascular e está presente na fisiopatologia da HFpEF." }
           ]
         };
-        // --- FIM: DADOS GERADOS PELA IA (JSON) ---
 
-        const quizForm = document.getElementById('quiz-form');
-        const submitButton = document.getElementById('submit-btn');
-        const resultsContainer = document.getElementById('results-container');
+        const questionDisplay = document.getElementById('question-display');
+        const resultsDisplay = document.getElementById('results-display');
+        const nextButton = document.getElementById('next-btn');
 
-        // Função para renderizar as questões na página
-        function renderQuiz() {
-            let quizHtml = '';
-            quizData.questions.forEach((q, index) => {
-                quizHtml += `
-                    <div class="question-block" id="question-${index}">
-                        <p class="question-text">${q.questionNumber}. ${q.question}</p>
-                        <ul class="options-list">
-                `;
-                q.answerOptions.forEach((option, optionIndex) => {
-                    quizHtml += `
-                        <li>
-                            <label>
-                                <input type="radio" name="question${index}" value="${optionIndex}">
-                                ${option.text}
-                            </label>
-                        </li>
-                    `;
-                });
-                quizHtml += `</ul></div>`;
-            });
-            quizForm.innerHTML = quizHtml;
-        }
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let isAnswered = false;
 
-        // Função para corrigir as respostas e mostrar o feedback
-        function checkAnswers(event) {
-            event.preventDefault(); // Impede o envio do formulário
+        function renderCurrentQuestion() {
+            isAnswered = false;
+            const q = quizData.questions[currentQuestionIndex];
             
-            let score = 0;
-            resultsContainer.innerHTML = '<h2>Resultados e Diagnóstico</h2>';
-
-            quizData.questions.forEach((q, index) => {
-                const formData = new FormData(quizForm);
-                const selectedOptionIndex = formData.get(`question${index}`);
-                
-                const resultItem = document.createElement('div');
-                resultItem.classList.add('result-item');
-                
-                let resultHtml = `<p><strong>Questão ${q.questionNumber}:</strong> ${q.question}</p>`;
-
-                if (selectedOptionIndex !== null) {
-                    const selectedOption = q.answerOptions[selectedOptionIndex];
-                    if (selectedOption.isCorrect) {
-                        score++;
-                        resultItem.classList.add('correct');
-                        resultHtml += `<p>Sua resposta: "${selectedOption.text}" (Correta)</p>`;
-                    } else {
-                        resultItem.classList.add('incorrect');
-                        resultHtml += `<p>Sua resposta: "${selectedOption.text}" (Incorreta)</p>`;
-                    }
-                    resultHtml += `<div class="rationale"><strong>Racional:</strong> ${selectedOption.rationale}</div>`;
-                } else {
-                    resultItem.classList.add('incorrect');
-                    resultHtml += `<p>Você não respondeu a esta questão.</p>`;
-                }
-                
-                // Mostra a resposta correta em caso de erro ou não resposta
-                if (selectedOptionIndex === null || !q.answerOptions[selectedOptionIndex].isCorrect) {
-                    const correctOption = q.answerOptions.find(opt => opt.isCorrect);
-                    resultHtml += `<p><strong>Resposta Correta:</strong> "${correctOption.text}"</p>`;
-                }
-
-                resultItem.innerHTML = resultHtml;
-                resultsContainer.appendChild(resultItem);
+            let optionsHtml = '';
+            q.answerOptions.forEach((option, index) => {
+                optionsHtml += `
+                    <li>
+                        <label>
+                            <input type="radio" name="option" value="${index}">
+                            ${option.text}
+                        </label>
+                    </li>
+                `;
             });
 
-            // Adiciona o placar final no topo dos resultados
-            const scoreElement = document.createElement('h3');
-            scoreElement.textContent = `Placar Final: ${score} de ${quizData.questions.length} corretas (${(score / quizData.questions.length * 100).toFixed(1)}%)`;
-            resultsContainer.insertBefore(scoreElement, resultsContainer.firstChild);
+            const questionHtml = `
+                <div class="question-header">
+                    <h2 class="question-text">${q.questionNumber}. ${q.question}</h2>
+                    <span class="question-counter">Questão ${q.questionNumber} de ${quizData.questions.length}</span>
+                </div>
+                <ul class="options-list">${optionsHtml}</ul>
+                <div class="hint-container">
+                    <button class="hint-btn" onclick="toggleHint()">Mostrar Dica</button>
+                    <div class="hint-text">${q.hint}</div>
+                </div>
+            `;
+            
+            questionDisplay.innerHTML = questionHtml;
+            nextButton.textContent = 'Verificar Resposta';
+            nextButton.disabled = true;
 
-            submitButton.style.display = 'none'; // Esconde o botão após a correção
+            // Ativar o botão 'Verificar' apenas quando uma opção for selecionada
+            document.querySelectorAll('input[name="option"]').forEach(input => {
+                input.addEventListener('change', () => {
+                    nextButton.disabled = false;
+                });
+            });
         }
 
-        // Adiciona o evento ao botão de submissão
-        submitButton.addEventListener('click', checkAnswers);
+        function toggleHint() {
+            const hintText = document.querySelector('.hint-text');
+            if (hintText.style.display === 'block') {
+                hintText.style.display = 'none';
+            } else {
+                hintText.style.display = 'block';
+            }
+        }
 
-        // Renderiza o quiz quando a página carrega
-        window.onload = renderQuiz;
+        function handleNextClick() {
+            if (!isAnswered) {
+                checkCurrentAnswer();
+            } else {
+                currentQuestionIndex++;
+                if (currentQuestionIndex < quizData.questions.length) {
+                    renderCurrentQuestion();
+                } else {
+                    showFinalResults();
+                }
+            }
+        }
+
+        function checkCurrentAnswer() {
+            isAnswered = true;
+            const q = quizData.questions[currentQuestionIndex];
+            const selectedInput = document.querySelector('input[name="option"]:checked');
+            
+            if (!selectedInput) return; // Não faz nada se nada for selecionado
+
+            const selectedIndex = parseInt(selectedInput.value);
+            const selectedOption = q.answerOptions[selectedIndex];
+
+            const allLabels = document.querySelectorAll('.options-list li label');
+            
+            // Adiciona feedback visual
+            if (selectedOption.isCorrect) {
+                score++;
+                selectedInput.parentElement.classList.add('feedback-correct');
+            } else {
+                selectedInput.parentElement.classList.add('feedback-incorrect');
+                const correctIndex = q.answerOptions.findIndex(opt => opt.isCorrect);
+                allLabels[correctIndex].classList.add('feedback-correct');
+            }
+
+            // Desativa todos os inputs e mostra o racional
+            document.querySelectorAll('input[name="option"]').forEach(input => {
+                input.disabled = true;
+                const optionIndex = parseInt(input.value);
+                const rationaleDiv = document.createElement('div');
+                rationaleDiv.className = 'rationale';
+                rationaleDiv.innerHTML = `<strong>Racional:</strong> ${q.answerOptions[optionIndex].rationale}`;
+                input.parentElement.appendChild(rationaleDiv);
+            });
+
+            // Muda o texto do botão
+            if (currentQuestionIndex < quizData.questions.length - 1) {
+                nextButton.textContent = 'Próxima Pergunta';
+            } else {
+                nextButton.textContent = 'Ver Resultados Finais';
+            }
+        }
+
+        function showFinalResults() {
+            questionDisplay.style.display = 'none';
+            nextButton.style.display = 'none';
+            
+            const resultsHtml = `
+                <h2>Avaliação Concluída!</h2>
+                <h3>Placar Final: ${score} de ${quizData.questions.length} corretas</h3>
+                <p>O seu aproveitamento foi de <strong>${(score / quizData.questions.length * 100).toFixed(1)}%</strong>.</p>
+            `;
+            resultsDisplay.innerHTML = resultsHtml;
+            resultsDisplay.style.display = 'block';
+        }
+
+        // Adiciona o evento principal ao botão
+        nextButton.addEventListener('click', handleNextClick);
+
+        // Inicia o quiz
+        window.onload = renderCurrentQuestion;
 
     </script>
 </body>

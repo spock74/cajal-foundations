@@ -104,3 +104,23 @@ export interface LibraryItem {
   timestamp: Date;
   messageId?: string;
 }
+
+// --- Tipos para a Funcionalidade de Avaliação ---
+
+export interface QuizOption {
+  text: string;
+  rationale: string;
+  isCorrect: boolean;
+}
+
+export interface QuizQuestion {
+  questionNumber: number;
+  question: string;
+  answerOptions: QuizOption[];
+  hint: string;
+}
+
+export interface QuizData {
+  title: string;
+  questions: QuizQuestion[];
+}

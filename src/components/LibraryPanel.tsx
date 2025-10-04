@@ -12,6 +12,7 @@ interface LibraryPanelProps {
   onDeleteItem: (id: number) => void;
   onItemClick?: (item: LibraryItem) => void;
   onOpenReport?: () => void;
+  onStartEvaluation?: () => void;
 }
 
 // NOTA: Movido para fora do componente principal para evitar recriação a cada renderização, o que pode causar problemas de estado e desempenho.
@@ -26,7 +27,7 @@ const ActionButton: React.FC<{ icon: React.ReactNode; label: string; title: stri
   </button>
 );
 
-const LibraryPanel: React.FC<LibraryPanelProps> = ({ items, onDeleteItem, onItemClick, onOpenReport }) => {
+const LibraryPanel: React.FC<LibraryPanelProps> = ({ items, onDeleteItem, onItemClick, onOpenReport, onStartEvaluation }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredItems = items.filter(item => 
@@ -54,7 +55,7 @@ const LibraryPanel: React.FC<LibraryPanelProps> = ({ items, onDeleteItem, onItem
         <ActionButton icon={<FileSearch size={20} />} label="Pesquisar" title="Pesquisar na Biblioteca (local)" />
         <ActionButton icon={<Share2 size={20} />} label="Compart." title="Compartilhar Biblioteca (futuro)" />
         <ActionButton icon={<Code size={20} />} label="Exportar" title="Exportar Biblioteca (futuro)" />
-        <ActionButton icon={<Bot size={20} />} label="Ações IA" title="Ações de IA na Biblioteca (futuro)" />
+        <ActionButton onClick={onStartEvaluation} icon={<Bot size={20} />} label="Ações IA" title="Iniciar Avaliação Diagnóstica" />
         {onOpenReport && <ActionButton onClick={onOpenReport} icon={<TrendingUp size={20} />} label="Relatório" title="Relatório de Uso de Tokens" />}
         <ActionButton icon={<Settings size={20} />} label="Config." title="Configurações da Biblioteca (futuro)" />
         <ActionButton icon={<HelpCircle size={20} />} label="Ajuda" title="Ajuda sobre a Biblioteca" />
