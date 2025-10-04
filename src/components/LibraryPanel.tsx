@@ -4,18 +4,20 @@
  */
 
 import React, { useState } from 'react';
-import { FileText, Trash2, FileSearch, Settings, HelpCircle, Bot, Code, Share2, BrainCircuit } from 'lucide-react';
+import { FileText, Trash2, FileSearch, Settings, HelpCircle, Bot, Code, Share2, BrainCircuit, TrendingUp } from 'lucide-react';
 import { LibraryItem } from '../types';
 
 interface LibraryPanelProps {
   items: LibraryItem[];
   onDeleteItem: (id: number) => void;
   onItemClick?: (item: LibraryItem) => void;
+  onOpenReport?: () => void;
 }
 
 // NOTA: Movido para fora do componente principal para evitar recriação a cada renderização, o que pode causar problemas de estado e desempenho.
-const ActionButton: React.FC<{ icon: React.ReactNode; label: string; title: string }> = ({ icon, label, title }) => (
+const ActionButton: React.FC<{ icon: React.ReactNode; label: string; title: string; onClick?: () => void }> = ({ icon, label, title, onClick }) => (
   <button 
+    onClick={onClick}
     title={title}
     className="flex flex-col items-center justify-center gap-1 p-2 text-xs text-center text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-lg transition-colors border border-black/5 dark:border-white/10"
   >
@@ -24,7 +26,7 @@ const ActionButton: React.FC<{ icon: React.ReactNode; label: string; title: stri
   </button>
 );
 
-const LibraryPanel: React.FC<LibraryPanelProps> = ({ items, onDeleteItem, onItemClick }) => {
+const LibraryPanel: React.FC<LibraryPanelProps> = ({ items, onDeleteItem, onItemClick, onOpenReport }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredItems = items.filter(item => 
@@ -53,6 +55,7 @@ const LibraryPanel: React.FC<LibraryPanelProps> = ({ items, onDeleteItem, onItem
         <ActionButton icon={<Share2 size={20} />} label="Compart." title="Compartilhar Biblioteca (futuro)" />
         <ActionButton icon={<Code size={20} />} label="Exportar" title="Exportar Biblioteca (futuro)" />
         <ActionButton icon={<Bot size={20} />} label="Ações IA" title="Ações de IA na Biblioteca (futuro)" />
+        {onOpenReport && <ActionButton onClick={onOpenReport} icon={<TrendingUp size={20} />} label="Relatório" title="Relatório de Uso de Tokens" />}
         <ActionButton icon={<Settings size={20} />} label="Config." title="Configurações da Biblioteca (futuro)" />
         <ActionButton icon={<HelpCircle size={20} />} label="Ajuda" title="Ajuda sobre a Biblioteca" />
       </div>

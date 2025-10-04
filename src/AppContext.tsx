@@ -12,7 +12,7 @@ import {
   KnowledgeSource,
   LibraryItem,
 } from './types';
-import { DEFAULT_MODEL } from './components/models';
+import { DEFAULT_MODEL, models as modelInfoConfig } from './components/models';
 import { geminiService } from './services/geminiService';
 import { db } from './services/dbService';
 import { sourceManagerService } from './services/sourceManagerService';
@@ -58,6 +58,7 @@ interface AppContextActions {
   handleSendMessage: (query: string, sourceIds: string[], actualPrompt?: string) => Promise<void>;
   handleOptimizePrompt: (query: string, sourceIds: string[]) => Promise<void>;
   handleGenerateMindMap: (messageId: string, text: string) => Promise<void>;
+  generateUsageReport: () => Promise<any[]>; // Retorna os dados para o painel
   handleSetModel: (modelName: string) => void;
   handleMindMapLayoutChange: (messageId: string, layout: { expandedNodeIds?: string[], nodePositions?: { [nodeId: string]: { x: number, y: number } } }) => void;
 }
@@ -521,6 +522,38 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }));
   }, []);
 
+  const generateUsageReport = useCallback(async () => {
+    const allMessages = await db.chatMessages.toArray();
+    const usageMap = new Map<string, { totalInputTokens: number; totalOutputTokens: number; interactionCount: number }>();
+
+    allMessages.forEach(msg => {
+      if (msg.sender === MessageSender.MODEL && msg.usageMetadata && msg.model) {
+        const stats = usageMap.get(msg.model) || { totalInputTokens: 0, totalOutputTokens: 0, interactionCount: 0 };
+        stats.totalInputTokens += msg.usageMetadata.promptTokenCount;
+        stats.totalOutputTokens += msg.usageMetadata.candidatesTokenCount;
+        stats.interactionCount += 1;
+        usageMap.set(msg.model, stats);
+      }
+    });
+
+    const reportData = Array.from(usageMap.entries()).map(([modelName, stats]) => {
+      const modelInfo = modelInfoConfig[modelName];
+      const costPerMillionInput = modelInfo ? modelInfo.in : 0;
+      const costPerMillionOutput = modelInfo ? modelInfo.out : 0;
+
+      const estimatedCost = ((stats.totalInputTokens / 1_000_000) * costPerMillionInput) + ((stats.totalOutputTokens / 1_000_000) * costPerMillionOutput);
+
+      return {
+        modelName,
+        ...stats,
+        totalTokens: stats.totalInputTokens + stats.totalOutputTokens,
+        estimatedCost,
+      };
+    });
+
+    return reportData.sort((a, b) => b.totalTokens - a.totalTokens);
+  }, []);
+
   const chatPlaceholder = useMemo(() => sourcesForActiveGroup.filter(s => s.selected).length > 0
       ? `Perguntar sobre as ${sourcesForActiveGroup.filter(s => s.selected).length} fontes selecionadas...`
       : "Comece uma nova conversa ou adicione fontes.", [sourcesForActiveGroup]);
@@ -531,9 +564,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   [conversations, activeConversationId, chatMessages.length]);
 
   const value = useMemo(() => ({
-      conversations, groups, activeGroupId, activeConversationId, isSidebarOpen, chatMessages, isLoading, libraryItems, allKnowledgeSources, libraryItemsForActiveContext, theme, activeGroup, sourcesForActiveGroup, chatPlaceholder, activeConversationName, activeModel,
-      setTheme, setIsSidebarOpen, handleSetGroup, handleAddGroup, handleDeleteGroup, handleUpdateGroup, handleSetConversation, handleNewConversation, handleDeleteConversation, handleClearAllConversations, handleUrlAdd, handleFileAdd, handleRemoveSource, handleToggleSourceSelection, handleSaveToLibrary, handleDeleteLibraryItem, handleOpenLibraryItem, handleSendMessage, handleOptimizePrompt, handleGenerateMindMap, handleSetModel, handleMindMapLayoutChange
-  }), [conversations, groups, activeGroupId, activeConversationId, isSidebarOpen, chatMessages, isLoading, libraryItems, allKnowledgeSources, libraryItemsForActiveContext, theme, activeGroup, sourcesForActiveGroup, chatPlaceholder, activeConversationName, activeModel, handleSetGroup, handleAddGroup, handleDeleteGroup, handleUpdateGroup, handleSetConversation, handleNewConversation, handleDeleteConversation, handleClearAllConversations, handleUrlAdd, handleFileAdd, handleRemoveSource, handleToggleSourceSelection, handleSaveToLibrary, handleDeleteLibraryItem, handleOpenLibraryItem, handleSendMessage, handleOptimizePrompt, handleGenerateMindMap, handleSetModel, handleMindMapLayoutChange]);
+      conversations, groups, activeGroupId, activeConversationId, isSidebarOpen, chatMessages, isLoading, libraryItems, allKnowledgeSources, libraryItemsForActiveContext, theme, activeGroup, sourcesForActiveGroup, chatPlaceholder, activeConversationName, activeModel, 
+      setTheme, setIsSidebarOpen, handleSetGroup, handleAddGroup, handleDeleteGroup, handleUpdateGroup, handleSetConversation, handleNewConversation, handleDeleteConversation, handleClearAllConversations, handleUrlAdd, handleFileAdd, handleRemoveSource, handleToggleSourceSelection, handleSaveToLibrary, handleDeleteLibraryItem, handleOpenLibraryItem, handleSendMessage, handleOptimizePrompt, handleGenerateMindMap, generateUsageReport, handleSetModel, handleMindMapLayoutChange
+  }), [conversations, groups, activeGroupId, activeConversationId, isSidebarOpen, chatMessages, isLoading, libraryItems, allKnowledgeSources, libraryItemsForActiveContext, theme, activeGroup, sourcesForActiveGroup, chatPlaceholder, activeConversationName, activeModel, handleSetGroup, handleAddGroup, handleDeleteGroup, handleUpdateGroup, handleSetConversation, handleNewConversation, handleDeleteConversation, handleClearAllConversations, handleUrlAdd, handleFileAdd, handleRemoveSource, handleToggleSourceSelection, handleSaveToLibrary, handleDeleteLibraryItem, handleOpenLibraryItem, handleSendMessage, handleOptimizePrompt, handleGenerateMindMap, generateUsageReport, handleSetModel, handleMindMapLayoutChange]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

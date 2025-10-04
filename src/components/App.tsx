@@ -3,12 +3,13 @@
  * @copyright 2025 - Todos os direitos reservados
  */
 
-import React from "react";
+import React, { useState } from "react";
 import { useAppContext } from "../AppContext";
 import ConversationManager from "./ConversationManager";
 import ChatInterface from "./ChatInterface"; 
 import LibraryPanel from "./LibraryPanel";
 import { Toaster } from "@/components/ui/toaster";
+import UsageReportPanel, { ModelUsage } from "@/components/UsageReportPanel";
 
 const App: React.FC = () => {
   const {
@@ -16,12 +17,21 @@ const App: React.FC = () => {
     conversations, activeConversationId, handleSetConversation, handleNewConversation, handleDeleteConversation, handleClearAllConversations,
     sourcesForActiveGroup, handleUrlAdd, handleFileAdd, handleRemoveSource, handleToggleSourceSelection,
     chatMessages, isLoading, handleSendMessage,
-    libraryItemsForActiveContext, handleDeleteLibraryItem, handleOpenLibraryItem, handleSaveToLibrary, handleOptimizePrompt, activeModel, handleSetModel,
+    libraryItemsForActiveContext, handleDeleteLibraryItem, handleOpenLibraryItem, handleSaveToLibrary, handleOptimizePrompt, activeModel, handleSetModel, generateUsageReport,
     theme, setTheme,
     isSidebarOpen, setIsSidebarOpen,
     chatPlaceholder, activeConversationName, handleGenerateMindMap,
     handleMindMapLayoutChange
   } = useAppContext();
+
+  const [isReportPanelOpen, setIsReportPanelOpen] = useState(false);
+  const [reportData, setReportData] = useState<ModelUsage[]>([]);
+
+  const handleOpenReportPanel = async () => {
+    const data = await generateUsageReport();
+    setReportData(data);
+    setIsReportPanelOpen(true);
+  };
 
   return (
     // Usando React.Fragment para permitir que o Modal seja um irmão do layout principal.
@@ -77,10 +87,15 @@ const App: React.FC = () => {
 
           </div>
           <div className="hidden lg:block lg:w-1/4 xl:w-1/5 h-full">
-            <LibraryPanel items={libraryItemsForActiveContext} onDeleteItem={handleDeleteLibraryItem} onItemClick={handleOpenLibraryItem} />
+            <LibraryPanel items={libraryItemsForActiveContext} onDeleteItem={handleDeleteLibraryItem} onItemClick={handleOpenLibraryItem} onOpenReport={handleOpenReportPanel} />
           </div>
         </div>
         <Toaster />
+        <UsageReportPanel 
+          isOpen={isReportPanelOpen}
+          onClose={() => setIsReportPanelOpen(false)}
+          data={reportData}
+        />
       </div>
     </>
   );
