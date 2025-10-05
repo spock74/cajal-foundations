@@ -3,8 +3,7 @@
  * @copyright 2025 - Todos os direitos reservados
  */
 
-import React, { useState } from 'react';
-import { FileText, Trash2, FileSearch, Settings, HelpCircle, Bot, Code, Share2, BrainCircuit, TrendingUp } from 'lucide-react';
+import React, { useState } from 'react';import { FileText, Trash2, FileSearch, Settings, HelpCircle, Bot, Code, Share2, BrainCircuit, TrendingUp, X } from 'lucide-react';
 import { LibraryItem } from '../types';
 
 interface LibraryPanelProps {
@@ -13,6 +12,7 @@ interface LibraryPanelProps {
   onItemClick?: (item: LibraryItem) => void;
   onOpenReport?: () => void;
   onStartEvaluation?: () => void;
+  onClose?: () => void;
 }
 
 // NOTA: Movido para fora do componente principal para evitar recriação a cada renderização, o que pode causar problemas de estado e desempenho.
@@ -27,7 +27,7 @@ const ActionButton: React.FC<{ icon: React.ReactNode; label: string; title: stri
   </button>
 );
 
-const LibraryPanel: React.FC<LibraryPanelProps> = ({ items, onDeleteItem, onItemClick, onOpenReport, onStartEvaluation }) => {
+const LibraryPanel: React.FC<LibraryPanelProps> = ({ items, onDeleteItem, onItemClick, onOpenReport, onStartEvaluation, onClose }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredItems = items.filter(item => 
@@ -36,8 +36,15 @@ const LibraryPanel: React.FC<LibraryPanelProps> = ({ items, onDeleteItem, onItem
 
   return (
     // Efeito de vidro fosco para o painel
-    <div className="p-4 bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl rounded-2xl h-full flex flex-col border border-black/5 dark:border-white/5 transition-colors duration-200">
-      <h2 className="text-xl font-semibold text-gray-800 dark:text-[#E2E2E2] mb-3">Biblioteca</h2>
+    <div className="p-4 bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl rounded-2xl h-full flex flex-col border border-black/5 dark:border-white/5 transition-colors duration-200 lg:p-4">
+      <div className="flex justify-between items-center mb-3">
+        <h2 className="text-xl font-semibold text-gray-800 dark:text-[#E2E2E2]">Biblioteca</h2>
+        {onClose && (
+          <button onClick={onClose} className="p-1.5 text-muted-foreground hover:text-foreground rounded-md hover:bg-muted transition-colors lg:hidden" aria-label="Fechar painel">
+            <X size={18} />
+          </button>
+        )}
+      </div>
       
       {/* Search Input */}
       <div className="relative mb-3">
@@ -51,7 +58,7 @@ const LibraryPanel: React.FC<LibraryPanelProps> = ({ items, onDeleteItem, onItem
         />
       </div>
 
-      <div className="grid grid-cols-3 gap-2 mb-4">
+      <div className="grid grid-cols-4 lg:grid-cols-3 gap-2 mb-4">
         <ActionButton icon={<FileSearch size={20} />} label="Pesquisar" title="Pesquisar na Biblioteca (local)" />
         <ActionButton icon={<Share2 size={20} />} label="Compart." title="Compartilhar Biblioteca (futuro)" />
         <ActionButton icon={<Code size={20} />} label="Exportar" title="Exportar Biblioteca (futuro)" />

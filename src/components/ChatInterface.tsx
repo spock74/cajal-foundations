@@ -79,10 +79,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               <Menu size={20} />
             </button>
           )}
-          <div>
-            <h2 className="text-xl font-semibold text-gray-800 dark:text-[#E2E2E2] truncate" title={conversationTitle}>{conversationTitle}</h2>
+          <div className="min-w-0">
+            <h2 className="text-lg md:text-xl font-semibold text-gray-800 dark:text-[#E2E2E2] truncate" title={conversationTitle}>{conversationTitle}</h2>
             {placeholderText && messages.filter(m => m.sender !== MessageSender.SYSTEM).length === 0 && (
-               <p className="text-xs text-gray-500 dark:text-[#A8ABB4] mt-1 max-w-md truncate" title={placeholderText}>{placeholderText}</p>
+               <p className="text-xs text-gray-500 dark:text-[#A8ABB4] mt-0.5 md:mt-1 max-w-full truncate" title={placeholderText}>{placeholderText}</p>
             )}
           </div>
         </div>
@@ -90,7 +90,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       </div>
 
       {/* O fundo do chat agora é transparente para mostrar o gradiente principal */}
-      <div className="flex-grow p-4 overflow-y-auto chat-container">
+      <div className="flex-grow px-2 py-4 md:p-4 overflow-y-auto chat-container">
         <div className="max-w-4xl mx-auto w-full">
           {messages.map((msg) => (
             <MessageItem 
@@ -104,12 +104,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         </div>
       </div>
 
-      <div className="p-4 border-t border-black/5 dark:border-white/5 bg-transparent rounded-b-2xl">
+      <div className="px-2 py-3 md:p-4 border-t border-black/5 dark:border-white/5 bg-transparent rounded-b-2xl">
         <div className="flex items-center gap-2">
            <textarea
             value={userQuery}
             onChange={(e) => setUserQuery(e.target.value)}
-            placeholder={placeholderText || "Comece uma nova conversa..."}
+            placeholder={placeholderText || "Sua pergunta..."}
             className="flex-grow h-10 min-h-[40px] py-2 px-3 border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-500 rounded-xl focus:ring-2 focus:ring-blue-500/50 outline-none transition-shadow resize-none text-sm"
             rows={1}
             disabled={isLoading}

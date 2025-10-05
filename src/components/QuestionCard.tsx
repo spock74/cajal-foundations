@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 interface QuestionCardProps {
   question: QuizQuestion;
   totalQuestions: number;
-  onAnswer: (isCorrect: boolean) => void;
+  onAnswer: (questionNumber: number, answerLetter: string, isCorrect: boolean) => void;
   onNext: () => void;
 }
 
@@ -24,8 +24,10 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({ question, totalQuest
   const handleCheckAnswer = () => {
     if (selectedOptionIndex === null) return;
     setIsAnswered(true);
-    const isCorrect = question.answerOptions[selectedOptionIndex].isCorrect;
-    onAnswer(isCorrect);
+    const selectedIndex = selectedOptionIndex;
+    const isCorrect = question.answerOptions[selectedIndex].isCorrect;
+    const answerLetter = String.fromCharCode(97 + selectedIndex); // 0->'a', 1->'b', etc.
+    onAnswer(question.questionNumber, answerLetter, isCorrect);
   };
 
   const cardVariants = {

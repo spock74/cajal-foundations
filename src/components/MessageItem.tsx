@@ -48,12 +48,21 @@ const SenderAvatar: React.FC<{ sender: MessageSender }> = ({ sender }) => {
   }
 
   return (
-    <div className={`w-8 h-8 rounded-full ${bgColorClass} ${textColorClass} flex items-center justify-center text-sm font-semibold flex-shrink-0`}>
+    <div className={`w-7 h-7 md:w-8 md:h-8 rounded-full ${bgColorClass} ${textColorClass} flex items-center justify-center text-xs md:text-sm font-semibold flex-shrink-0`}>
       {avatarChar}
     </div>
   );
 };
 
+const SenderInfo: React.FC<{ sender: MessageSender }> = ({ sender }) => {
+  const name = sender === MessageSender.USER ? 'Você' : 'Assistente IA';
+  return (
+    <div className="flex items-center gap-2">
+      <SenderAvatar sender={sender} />
+      <span className="text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-300">{name}</span>
+    </div>
+  );
+};
 const getStatusText = (status: string | undefined): string => {
   if (!status) return 'DESCONHECIDO';
   const cleanStatus = status.replace('URL_RETRIEVAL_STATUS_', '');
@@ -152,10 +161,10 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onSendMessage, onTog
     });
   };
 
-  let bubbleClasses = "p-3 rounded-lg shadow w-full ";
+  let bubbleClasses = "p-2 md:p-3 rounded-lg shadow w-full text-xs md:text-sm ";
 
   if (isUser) {
-    bubbleClasses += "bg-blue-600 dark:bg-blue-900/80 text-white rounded-br-none";
+    bubbleClasses += "bg-blue-600 dark:bg-blue-900/80 text-white rounded-bl-none";
   } else if (isModel) {
     bubbleClasses += `bg-white/80 dark:bg-gray-800/50 border border-black/5 dark:border-white/10 rounded-bl-none`;
   } else { // System message
@@ -163,9 +172,9 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onSendMessage, onTog
   }
 
   return (
-    <div className={`flex mb-4 ${isUser ? 'justify-end' : 'justify-start'}`}>
-      <div className={`flex flex-col items-start gap-2 max-w-[85%] ${isUser ? 'items-end' : 'items-start'}`}>
-        {!isUser && <SenderAvatar sender={message.sender} />}
+    <div className="flex flex-col items-start gap-2 mb-6">
+      <SenderInfo sender={message.sender} />
+      <div className="w-full">
         <div className={bubbleClasses}>
           {message.isLoading ? (
             <div className="flex items-center space-x-1.5">
@@ -248,7 +257,6 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onSendMessage, onTog
             onLayoutChange={(layout) => onMindMapLayoutChange && onMindMapLayoutChange(message.id, layout)}
           />
         )}
-        {isUser && <SenderAvatar sender={message.sender} />}
       </div>
     </div>
   );

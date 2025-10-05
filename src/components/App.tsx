@@ -3,7 +3,7 @@
  * @copyright 2025 - Todos os direitos reservados
  */
 
-import React, { useState } from "react";
+import React, { useState } from "react";import { ChevronLeft } from "lucide-react";
 import { useAppContext } from "../AppContext";
 import ConversationManager from "./ConversationManager";
 import ChatInterface from "./ChatInterface"; 
@@ -22,7 +22,7 @@ const App: React.FC = () => {
     libraryItemsForActiveContext, handleDeleteLibraryItem, handleOpenLibraryItem, handleSaveToLibrary, handleOptimizePrompt, activeModel, handleSetModel, generateUsageReport,
     theme, setTheme,
     isSidebarOpen, setIsSidebarOpen,
-    chatPlaceholder, activeConversationName, handleGenerateMindMap, handleStartEvaluation,
+    chatPlaceholder, activeConversationName, handleGenerateMindMap, handleStartEvaluation, isLibraryPanelOpen, setIsLibraryPanelOpen,
     isEvaluationPanelOpen, activeQuizData, handleCloseEvaluation,
     handleMindMapLayoutChange
   } = useAppContext();
@@ -43,7 +43,7 @@ const App: React.FC = () => {
       <div className="h-screen max-h-screen antialiased relative overflow-x-hidden bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100">
         <div className="absolute inset-0 -z-10 h-full w-full bg-white bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] dark:bg-black dark:bg-[radial-gradient(#ffffff20_1px,transparent_1px)]"></div>
 
-        {isSidebarOpen && <div className="fixed inset-0 bg-black/60 z-20 md:hidden" onClick={() => setIsSidebarOpen(false)} aria-hidden="true" />}
+        {(isSidebarOpen || isLibraryPanelOpen) && <div className="fixed inset-0 bg-black/60 z-20 lg:hidden" onClick={() => { setIsSidebarOpen(false); setIsLibraryPanelOpen(false); }} aria-hidden="true" />}
         
         <div className="flex h-full w-full p-2 md:p-4 gap-2 md:gap-4">
           <div className={`fixed top-0 left-0 h-full w-11/12 max-w-sm z-30 transform transition-transform ease-in-out duration-300 p-3 md:static md:p-0 md:w-1/4 xl:w-1/5 md:h-full md:max-w-xs md:translate-x-0 md:z-auto ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
@@ -89,16 +89,24 @@ const App: React.FC = () => {
             />
 
           </div>
-          <div className="hidden lg:block lg:w-1/4 xl:w-1/5 h-full">
+          <div className={`fixed top-0 right-0 h-full w-11/12 max-w-sm z-30 transform transition-transform ease-in-out duration-300 p-3 lg:static lg:p-0 lg:w-1/4 xl:w-1/5 lg:h-full lg:max-w-xs lg:translate-x-0 lg:z-auto ${isLibraryPanelOpen ? 'translate-x-0' : 'translate-x-full'}`}>
             <LibraryPanel 
               items={libraryItemsForActiveContext} 
               onDeleteItem={handleDeleteLibraryItem} 
               onItemClick={handleOpenLibraryItem} 
               onOpenReport={handleOpenReportPanel} 
               onStartEvaluation={() => handleStartEvaluation(sampleQuizData)}
+              onClose={() => setIsLibraryPanelOpen(false)}
             />
           </div>
         </div>
+        
+        {!isLibraryPanelOpen && (
+          <button onClick={() => setIsLibraryPanelOpen(true)} className="fixed top-1/2 right-0 -translate-y-1/2 z-10 bg-card p-1 rounded-l-md border-y border-l border-border shadow-lg lg:hidden" aria-label="Abrir biblioteca">
+            <ChevronLeft size={20} />
+          </button>
+        )}
+
         <Toaster />
         <UsageReportPanel 
           isOpen={isReportPanelOpen}

@@ -137,9 +137,10 @@ export class MyDatabase extends Dexie {
 
   async deleteConversation(conversationId: string): Promise<void> {
     // Usa uma transação para garantir que a conversa e suas mensagens sejam removidas atomicamente.
-    return this.transaction('rw', this.conversations, this.chatMessages, async () => {
+    return this.transaction('rw', this.conversations, this.chatMessages, this.savedItems, async () => {
       await this.conversations.delete(conversationId);
       await this.chatMessages.where('conversationId').equals(conversationId).delete();
+      await this.savedItems.where('conversationId').equals(conversationId).delete();
     });
   }
 
@@ -148,6 +149,15 @@ export class MyDatabase extends Dexie {
     await this.chatMessages.clear();
   }
 
+  async clearAllData(): Promise<void> {
+    // Deleta todos os dados de todas as tabelas principais.
+    await Promise.all([
+      this.knowledgeGroups.clear(),
+      this.conversations.clear(),
+      this.chatMessages.clear(),
+      this.savedItems.clear(),
+    ]);
+  }
   // --- Novos Métodos para a tabela 'chatMessages' ---
 
   async getAllChatMessages(): Promise<ChatMessage[]> {

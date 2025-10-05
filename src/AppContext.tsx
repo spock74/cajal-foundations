@@ -37,6 +37,7 @@ interface AppContextState {
   activeConversationName: string;
   activeModel: string;
   isEvaluationPanelOpen: boolean;
+  isLibraryPanelOpen: boolean;
   activeQuizData: QuizData | null;
 }
 
@@ -66,6 +67,7 @@ interface AppContextActions {
   handleMindMapLayoutChange: (messageId: string, layout: { expandedNodeIds?: string[], nodePositions?: { [nodeId: string]: { x: number, y: number } } }) => void;
   handleStartEvaluation: (quizData: QuizData) => void;
   handleCloseEvaluation: () => void;
+  setIsLibraryPanelOpen: (isOpen: boolean) => void;
 }
 
 type AppContextType = AppContextState & AppContextActions;
@@ -88,6 +90,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Estado para o painel de avaliação
   const [isEvaluationPanelOpen, setIsEvaluationPanelOpen] = useState(false);
+  const [isLibraryPanelOpen, setIsLibraryPanelOpen] = useState(false);
   const [activeQuizData, setActiveQuizData] = useState<QuizData | null>(null);
 
 
@@ -203,16 +206,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     await db.deleteConversation(id);
     const newConversations = conversations.filter(c => c.id !== id);
     setConversations(newConversations);
+    // Remove também os itens da biblioteca associados à conversa deletada do estado da UI.
+    setLibraryItems(prev => prev.filter(item => item.conversationId !== id));
     if (activeConversationId === id) {
       newConversations.length > 0 ? await handleSetConversation(newConversations[0].id) : handleNewConversation();
     }
   }, [conversations, activeConversationId, handleSetConversation, handleNewConversation]);
 
   const handleClearAllConversations = useCallback(async () => {
-    await db.clearAllConversations();
+    await db.clearAllData();
+    // Reseta todos os estados para o estado inicial
+    const defaultGroup = { id: `group-${Date.now()}`, name: "Tópico Geral", sources: [] };
+    await db.addKnowledgeGroup(defaultGroup);
+    
+    setGroups([defaultGroup]);
     setConversations([]);
-    handleNewConversation();
-  }, [handleNewConversation]);
+    setChatMessages([]);
+    setLibraryItems([]);
+    setActiveGroupId(defaultGroup.id);
+    setActiveConversationId(null);
+  }, []);
 
   const handleUrlAdd = useCallback(async (url: string) => {
     if (!activeGroupId) return;
@@ -584,9 +597,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   const value = useMemo(() => ({
-      conversations, groups, activeGroupId, activeConversationId, isSidebarOpen, chatMessages, isLoading, libraryItems, allKnowledgeSources, libraryItemsForActiveContext, theme, activeGroup, sourcesForActiveGroup, chatPlaceholder, activeConversationName, activeModel, isEvaluationPanelOpen, activeQuizData,
-      setTheme, setIsSidebarOpen, handleSetGroup, handleAddGroup, handleDeleteGroup, handleUpdateGroup, handleSetConversation, handleNewConversation, handleDeleteConversation, handleClearAllConversations, handleUrlAdd, handleFileAdd, handleRemoveSource, handleToggleSourceSelection, handleSaveToLibrary, handleDeleteLibraryItem, handleOpenLibraryItem, handleSendMessage, handleOptimizePrompt, handleGenerateMindMap, generateUsageReport, handleSetModel, handleMindMapLayoutChange, handleStartEvaluation, handleCloseEvaluation
-  }), [conversations, groups, activeGroupId, activeConversationId, isSidebarOpen, chatMessages, isLoading, libraryItems, allKnowledgeSources, libraryItemsForActiveContext, theme, activeGroup, sourcesForActiveGroup, chatPlaceholder, activeConversationName, activeModel, isEvaluationPanelOpen, activeQuizData, handleSetGroup, handleAddGroup, handleDeleteGroup, handleUpdateGroup, handleSetConversation, handleNewConversation, handleDeleteConversation, handleClearAllConversations, handleUrlAdd, handleFileAdd, handleRemoveSource, handleToggleSourceSelection, handleSaveToLibrary, handleDeleteLibraryItem, handleOpenLibraryItem, handleSendMessage, handleOptimizePrompt, handleGenerateMindMap, generateUsageReport, handleSetModel, handleMindMapLayoutChange, handleStartEvaluation, handleCloseEvaluation]);
+      conversations, groups, activeGroupId, activeConversationId, isSidebarOpen, chatMessages, isLoading, libraryItems, allKnowledgeSources, libraryItemsForActiveContext, theme, activeGroup, sourcesForActiveGroup, chatPlaceholder, activeConversationName, activeModel, isEvaluationPanelOpen, isLibraryPanelOpen, activeQuizData,
+      setTheme, setIsSidebarOpen, handleSetGroup, handleAddGroup, handleDeleteGroup, handleUpdateGroup, handleSetConversation, handleNewConversation, handleDeleteConversation, handleClearAllConversations, handleUrlAdd, handleFileAdd, handleRemoveSource, handleToggleSourceSelection, handleSaveToLibrary, handleDeleteLibraryItem, handleOpenLibraryItem, handleSendMessage, handleOptimizePrompt, handleGenerateMindMap, generateUsageReport, handleSetModel, handleMindMapLayoutChange, handleStartEvaluation, handleCloseEvaluation, setIsLibraryPanelOpen
+  }), [conversations, groups, activeGroupId, activeConversationId, isSidebarOpen, chatMessages, isLoading, libraryItems, allKnowledgeSources, libraryItemsForActiveContext, theme, activeGroup, sourcesForActiveGroup, chatPlaceholder, activeConversationName, activeModel, isEvaluationPanelOpen, isLibraryPanelOpen, activeQuizData, handleSetGroup, handleAddGroup, handleDeleteGroup, handleUpdateGroup, handleSetConversation, handleNewConversation, handleDeleteConversation, handleClearAllConversations, handleUrlAdd, handleFileAdd, handleRemoveSource, handleToggleSourceSelection, handleSaveToLibrary, handleDeleteLibraryItem, handleOpenLibraryItem, handleSendMessage, handleOptimizePrompt, handleGenerateMindMap, generateUsageReport, handleSetModel, handleMindMapLayoutChange, handleStartEvaluation, handleCloseEvaluation, setIsLibraryPanelOpen]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
