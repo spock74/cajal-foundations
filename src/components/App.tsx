@@ -3,7 +3,8 @@
  * @copyright 2025 - Todos os direitos reservados
  */
 
-import React, { useState } from "react";import { ChevronLeft } from "lucide-react";
+import React, { useState } from "react";
+import { ChevronLeft } from "lucide-react";
 import { useAppContext } from "../AppContext";
 import ConversationManager from "./ConversationManager";
 import ChatInterface from "./ChatInterface"; 
@@ -11,7 +12,7 @@ import LibraryPanel from "./LibraryPanel";
 import { Toaster } from "@/components/ui/toaster";
 import { EvaluationPanel } from "@/components/EvaluationPanel";
 import UsageReportPanel, { ModelUsage } from "@/components/UsageReportPanel";
-import { sampleQuizData } from "./sampleQuiz";
+import { sampleQuizData } from "@/data/sampleQuiz";
 
 const App: React.FC = () => {
   const {
