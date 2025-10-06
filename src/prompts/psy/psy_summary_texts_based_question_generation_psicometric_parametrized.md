@@ -32,7 +32,7 @@ Gere uma avaliação completa seguindo rigorosamente os parâmetros de estrutura
 4.  **Metadados:** Para cada questão, forneça todos os metadados solicitados no formato de saída, incluindo o racional para cada alternativa e a sua estimativa para o parâmetro 'b' da TRI.
 
 # FORMATO DE SAÍDA
-Responda estritamente em formato JSON, seguindo a estrutura exata do schema fornecido, preenchendo todos os campos.
+Responda estritamente em formato JSON, seguindo a estrutura exata definida em `src/schemas/assessment.schema.json`, preenchendo todos os campos.
 
 {
   "assessment": {

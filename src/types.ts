@@ -107,20 +107,29 @@ export interface LibraryItem {
 
 // --- Tipos para a Funcionalidade de Avaliação ---
 
-export interface QuizOption {
-  text: string;
-  rationale: string;
-  isCorrect: boolean;
-}
+// Estrutura de dados para uma avaliação, alinhada com o JSON gerado.
 
-export interface QuizQuestion {
-  questionNumber: number;
-  question: string;
-  answerOptions: QuizOption[];
+/**
+ * Representa uma única questão dentro de uma avaliação.
+ * Contém o texto da questão, opções, metadados e a explicação.
+ */
+export interface AssessmentQuestion {
+  id: number;
+  questionText: string;
+  options: string[];
+  correctOption: string; // Ex: "A", "B", "C", "D"
   hint: string;
+  explanation: string;
+  sourceConceptId: string;
+  bloomLevel: 'Lembrar' | 'Compreender' | 'Aplicar' | 'Analisar' | 'Avaliar' | 'Criar' | string;
 }
 
-export interface QuizData {
+/**
+ * Representa o objeto completo de uma avaliação, contendo o título,
+ * a descrição e a lista de questões.
+ */
+export interface AssessmentData {
   title: string;
-  questions: QuizQuestion[];
+  description: string;
+  questions: AssessmentQuestion[];
 }

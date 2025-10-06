@@ -5,8 +5,9 @@
     pkgs.pnpm
   ];
   idx.extensions = [
-    "svelte.svelte-vscode"
-    "vue.volar"
+    # Extensões recomendadas para um projeto React + TypeScript
+    "dbaeumer.vscode-eslint" # Integração com ESLint para análise de código
+    "esbenp.prettier-vscode" # Formatador de código automático
   ];
   idx.previews = {
     previews = {

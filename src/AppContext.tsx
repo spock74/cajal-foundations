@@ -214,16 +214,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [conversations, activeConversationId, handleSetConversation, handleNewConversation]);
 
   const handleClearAllConversations = useCallback(async () => {
+    // Limpa explicitamente todas as tabelas de dados, incluindo as fontes.
     await db.clearAllData();
-    // Reseta todos os estados para o estado inicial
-    const defaultGroup = { id: `group-${Date.now()}`, name: "Tópico Geral", sources: [] };
-    await db.addKnowledgeGroup(defaultGroup);
-    
-    setGroups([defaultGroup]);
+    // A tabela que armazena o conteúdo dos arquivos precisa ser limpa.
+    // O erro indica que 'db.sources' não existe. A tabela é provavelmente
+    // nomeada de outra forma, como 'sourceContents'.
+    await db.sourceContents.clear();
+
+    // Reseta completamente o estado da aplicação para um estado inicial limpo.
+    setGroups([]);
     setConversations([]);
     setChatMessages([]);
     setLibraryItems([]);
-    setActiveGroupId(defaultGroup.id);
+    setAllKnowledgeSources([]);
+    setActiveGroupId(null);
     setActiveConversationId(null);
   }, []);
 

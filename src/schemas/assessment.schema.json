@@ -1,0 +1,145 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Cajal Foundations Assessment Schema",
+  "description": "Define a estrutura padrão para um arquivo de avaliação, incluindo metadados pedagógicos e psicométricos.",
+  "type": "object",
+  "properties": {
+    "assessment": {
+      "description": "O contêiner principal da avaliação.",
+      "type": "object",
+      "properties": {
+        "assessmentId": {
+          "description": "Um identificador único universal (UUID v4) para a avaliação.",
+          "type": "string",
+          "format": "uuid"
+        },
+        "title": {
+          "description": "O título da avaliação.",
+          "type": "string"
+        },
+        "items": {
+          "description": "Uma lista de itens (questões) que compõem a avaliação.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/assessmentItem"
+          }
+        }
+      },
+      "required": ["assessmentId", "title", "items"]
+    }
+  },
+  "required": ["assessment"],
+  "definitions": {
+    "assessmentItem": {
+      "description": "Representa um único item (questão) da avaliação.",
+      "type": "object",
+      "properties": {
+        "itemId": {
+          "description": "Um identificador único universal (UUID v4) para o item.",
+          "type": "string",
+          "format": "uuid"
+        },
+        "questionNumber": {
+          "description": "O número sequencial da questão na avaliação.",
+          "type": "integer"
+        },
+        "pedagogicalMetadata": {
+          "type": "object",
+          "properties": {
+            "bloomLevel": {
+              "description": "O nível da Taxonomia de Bloom que o item avalia.",
+              "type": "string",
+              "enum": ["Lembrar", "Compreender", "Aplicar", "Analisar", "Avaliar", "Criar"]
+            },
+            "contentTopics": {
+              "description": "Uma lista de tópicos de conteúdo abordados pelo item.",
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "required": ["bloomLevel", "contentTopics"]
+        },
+        "psychometricMetadata": {
+          "type": "object",
+          "properties": {
+            "irtParameters": {
+              "description": "Parâmetros da Teoria de Resposta ao Item (TRI).",
+              "type": "object",
+              "properties": {
+                "estimated": {
+                  "type": "object",
+                  "properties": {
+                    "b": {
+                      "description": "Parâmetro de dificuldade estimado (theta para 50% de prob. de acerto).",
+                      "type": "number"
+                    }
+                  },
+                  "required": ["b"]
+                }
+              },
+              "required": ["estimated"]
+            }
+          },
+          "required": ["irtParameters"]
+        },
+        "content": {
+          "type": "object",
+          "properties": {
+            "itemType": {
+              "type": "string",
+              "enum": ["multiple-choice"]
+            },
+            "stem": {
+              "description": "O enunciado da questão.",
+              "type": "string"
+            },
+            "options": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "key": { "type": "string" },
+                  "text": { "type": "string" }
+                },
+                "required": ["key", "text"]
+              }
+            }
+          },
+          "required": ["itemType", "stem", "options"]
+        },
+        "answer": {
+          "type": "object",
+          "properties": {
+            "correctKeys": {
+              "description": "Uma lista contendo a(s) chave(s) da(s) alternativa(s) correta(s).",
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "rationale": {
+              "description": "Uma explicação detalhada de por que a resposta correta é, de fato, correta.",
+              "type": "string"
+            },
+            "distractorAnalysis": {
+              "description": "Uma análise de cada alternativa incorreta (distrator).",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "key": { "type": "string" },
+                  "targetedMisconception": { "type": "string" }
+                },
+                "required": ["key", "targetedMisconception"]
+              }
+            }
+          },
+          "required": ["correctKeys", "rationale", "distractorAnalysis"]
+        },
+        "hint": {
+          "description": "Uma dica opcional para guiar o raciocínio do aluno.",
+          "type": "string"
+        }
+      },
+      "required": ["itemId", "questionNumber", "pedagogicalMetadata", "psychometricMetadata", "content", "answer", "hint"]
+    }
+  }
+}

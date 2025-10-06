@@ -5,6 +5,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './components/App';
+import { AuthProvider } from './hooks/useAuth';
 import { AppProvider } from './AppContext';
 import './index.css';
 import 'reactflow/dist/style.css';
@@ -17,8 +18,10 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <AppProvider>
-      <App />
-    </AppProvider>
+    <AuthProvider>
+      <AppProvider>
+        <App />
+      </AppProvider>
+    </AuthProvider>
   </React.StrictMode>
 );
