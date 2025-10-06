@@ -15,13 +15,14 @@ import {
 } from './types';
 import { DEFAULT_MODEL, models as modelInfoConfig } from './components/models';
 import { useAuth } from './hooks/useAuth';
-import { firestore } from '@/firebaseConfig';
+import { firestore, functions } from '@/firebaseConfig';
 import { geminiService } from './services/geminiService';
 import { db } from './services/dbService';
 import { sourceManagerService } from './services/sourceManagerService';
 import { useToast } from '@/hooks/use-toast';
 import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, query, orderBy, serverTimestamp, getDocs, writeBatch } from 'firebase/firestore';
 
+import { httpsCallable } from 'firebase/functions';
 interface AppContextState {
   conversations: Conversation[];
   groups: KnowledgeGroup[];
@@ -458,7 +459,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setIsLoading(true);
     let currentConversationId = activeConversationId;
     if (!currentConversationId) {
-      const title = await geminiService.generateTitleForConversation(query, activeModel);
+      let title = "Nova Conversa"; // Título de fallback
+      try {
+        // Tenta chamar a Cloud Function primeiro
+        const generateTitleFunction = httpsCallable(functions, 'generateTitle');
+        const result = await generateTitleFunction({ text: query });
+        if (typeof result.data === 'object' && result.data !== null && 'title' in result.data) {
+          title = (result.data as { title: string }).title;
+        }
+      } catch (error) {
+        console.warn("Falha ao chamar a Cloud Function 'generateTitle'. Usando fallback local.", error);
+        // Se a Cloud Function falhar, usa o método local como fallback
+        title = await geminiService.generateTitleForConversation(query, activeModel);
+      }
+
       const convosRef = collection(firestore, 'users', user.uid, 'groups', activeGroupId, 'conversations');
       const newConvoDoc = await addDoc(convosRef, {
         name: title,
@@ -481,7 +495,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const modelPlaceholderDocRef = await addDoc(messagesRef, { ...modelPlaceholder, timestamp: serverTimestamp() });
 
     try {
-      const selectedSources = allKnowledgeSources.filter(s => sourceIds.includes(s.id));
+      const selectedSources = sourcesForActiveGroup.filter(s => sourceIds.includes(s.id));
       const response = await geminiService.generateContentWithSources(promptForAI, selectedSources, activeModel);
       
       // Cria o objeto base da mensagem final
@@ -489,7 +503,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         ...modelPlaceholder, 
         text: response.text, 
         isLoading: false, 
-        mindMap: undefined,
         model: response.modelName,
         usageMetadata: response.usageMetadata,
       };
@@ -512,7 +525,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, activeGroupId, activeConversationId, activeModel, allKnowledgeSources, user]);
+  }, [isLoading, activeGroupId, activeConversationId, activeModel, sourcesForActiveGroup, user]);
 
   const handleOptimizePrompt = useCallback(async (query: string, sourceIds: string[]) => {
     if (!query.trim() || isLoading || !user || !activeGroupId) return;
@@ -524,7 +537,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   
     let currentConversationId = activeConversationId;
     if (!currentConversationId) {
-      const title = await geminiService.generateTitleForConversation(query, activeModel);
+      let title = "Nova Conversa"; // Título de fallback
+      try {
+        // Tenta chamar a Cloud Function primeiro
+        const generateTitleFunction = httpsCallable(functions, 'generateTitle');
+        const result = await generateTitleFunction({ text: query });
+        if (typeof result.data === 'object' && result.data !== null && 'title' in result.data) {
+          title = (result.data as { title: string }).title;
+        }
+      } catch (error) {
+        console.warn("Falha ao chamar a Cloud Function 'generateTitle'. Usando fallback local.", error);
+        // Se a Cloud Function falhar, usa o método local como fallback
+        title = await geminiService.generateTitleForConversation(query, activeModel);
+      }
+
       const convosRef = collection(firestore, 'users', user.uid, 'groups', activeGroupId, 'conversations');
       const newConvoDoc = await addDoc(convosRef, {
         name: title,
@@ -547,7 +573,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const systemPlaceholderDocRef = await addDoc(messagesRef, { ...systemPlaceholder, timestamp: serverTimestamp() });
   
     try {
-      const selectedSources = allKnowledgeSources.filter(s => sourceIds.includes(s.id));
+      const selectedSources = sourcesForActiveGroup.filter(s => sourceIds.includes(s.id));
       const suggestions = await geminiService.generateOptimizedPrompts(query, selectedSources, activeModel);
   
       const systemMessage: ChatMessage = {
@@ -578,7 +604,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setIsLoading(false); 
       dismiss();
     }
-  }, [isLoading, user, activeGroupId, activeConversationId, activeModel, allKnowledgeSources, toast]);
+  }, [isLoading, user, activeGroupId, activeConversationId, activeModel, sourcesForActiveGroup, toast]);
 
   const handleGenerateMindMap = useCallback(async (messageId: string, text: string) => {
     if (!activeConversationId) return;

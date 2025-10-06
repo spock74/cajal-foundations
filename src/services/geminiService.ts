@@ -188,7 +188,9 @@ public async generateContentWithSources(prompt: string, sources: KnowledgeSource
   }
 
   public async generateTitleForConversation(firstMessage: string, modelName: string): Promise<string> {
-    const prompt = `Gere um título curto e descritivo (máximo 5 palavras) para uma conversa que começa com a seguinte pergunta: "${firstMessage}". Responda apenas com o título.`;
+    const prompt = `Gere um título curto e descritivo (máximo 5 palavras) em Português do Brasil ` +
+                   `para uma conversa que começa com a seguinte pergunta: "${firstMessage}". ` +
+                   `Responda apenas com o título.`;
     try {
       const result = await this.genAI.models.generateContent({
         model: modelName,
