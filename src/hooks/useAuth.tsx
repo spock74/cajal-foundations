@@ -4,20 +4,34 @@
  */
 
 import React, { useState, useEffect, useContext, createContext, ReactNode } from 'react';
-import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, firestore } from '../firebaseConfig';
+import {
+  onAuthStateChanged,
+  User as FirebaseUser,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
+  signOut,
+} from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { auth, firestore } from '@/firebaseConfig';
 
 // Define a forma do nosso objeto de usuário customizado, que inclui o papel.
 export interface AppUser {
   uid: string;
   email: string | null;
+  displayName: string | null;
+  photoURL: string | null;
   role: 'student' | 'teacher' | 'admin' | null; // Adicione outros papéis conforme necessário
 }
 
 interface AuthContextType {
   user: AppUser | null;
   loading: boolean;
+  signUp: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
+  logOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -46,6 +60,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setUser({
           uid: firebaseUser.uid,
           email: firebaseUser.email,
+          displayName: firebaseUser.displayName,
+          photoURL: firebaseUser.photoURL,
           role: userRole,
         });
       } else {
@@ -59,7 +75,54 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return () => unsubscribe();
   }, []);
 
-  return <AuthContext.Provider value={{ user, loading }}>{children}</AuthContext.Provider>;
+  const signUp = async (email: string, password: string) => {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    // Cria um documento para o novo usuário no Firestore com um papel padrão.
+    await setDoc(doc(firestore, 'users', userCredential.user.uid), {
+      email: userCredential.user.email,
+      role: 'student', // Papel padrão para novos usuários
+      createdAt: new Date(),
+    });
+  };
+
+  const signIn = async (email: string, password: string) => {
+    await signInWithEmailAndPassword(auth, email, password);
+  };
+
+  const signInWithGoogle = async () => {
+    const provider = new GoogleAuthProvider();
+    const result = await signInWithPopup(auth, provider);
+    const user = result.user;
+
+    // Verifica se o usuário já existe no Firestore. Se não, cria um novo documento.
+    const userDocRef = doc(firestore, 'users', user.uid);
+    const userDoc = await getDoc(userDocRef);
+
+    if (!userDoc.exists()) {
+      await setDoc(userDocRef, {
+        email: user.email,
+        displayName: user.displayName,
+        photoURL: user.photoURL,
+        role: 'student', // Papel padrão
+        createdAt: new Date(),
+      });
+    }
+  };
+
+  const logOut = async () => {
+    await signOut(auth);
+  };
+
+  const value = {
+    user,
+    loading,
+    signUp,
+    signIn,
+    signInWithGoogle,
+    logOut,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = (): AuthContextType => {

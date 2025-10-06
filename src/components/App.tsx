@@ -4,11 +4,13 @@
  */
 
 import React, { useState } from "react";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Loader2 } from "lucide-react";
 import { useAppContext } from "../AppContext";
+import { useAuth } from "@/hooks/useAuth";
 import ConversationManager from "./ConversationManager";
 import ChatInterface from "./ChatInterface"; 
 import LibraryPanel from "./LibraryPanel";
+import AuthPage from "./AuthPage";
 import { Toaster } from "@/components/ui/toaster";
 import { EvaluationPanel } from "@/components/EvaluationPanel";
 import UsageReportPanel, { ModelUsage } from "@/components/UsageReportPanel";
@@ -30,6 +32,19 @@ const App: React.FC = () => {
 
   const [isReportPanelOpen, setIsReportPanelOpen] = useState(false);
   const [reportData, setReportData] = useState<ModelUsage[]>([]);
+  const { user, loading: authLoading } = useAuth();
+
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50 dark:bg-gray-950">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthPage />;
+  }
 
   const handleOpenReportPanel = async () => {
     const data = await generateUsageReport();
