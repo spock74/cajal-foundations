@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import KnowledgeBaseManager from './KnowledgeBaseManager';
 import { useAuth } from '@/hooks/useAuth';
 import { modelOptions } from './models';
@@ -92,6 +92,7 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
     title: string;
     description: string;
     onConfirm: () => void;
+    isDestructive?: boolean;
   } | null>(null);
 
   const handleCreateGroup = () => {
@@ -110,6 +111,7 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
         title: "Nenhuma fonte selecionada",
         description: "Para iniciar uma nova conversa, por favor, selecione pelo menos uma fonte de conhecimento na lista abaixo.",
         onConfirm: () => setDialogState(null), // Apenas fecha o diálogo
+        isDestructive: false,
       });
     } else {
       onNewConversation();
@@ -143,6 +145,7 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
         title: `Apagar o tópico "${group.name}"?`,
         description: "Esta ação é irreversível e removerá o tópico, todas as suas conversas e fontes associadas.",
         onConfirm: () => onDeleteGroup(group.id),
+        isDestructive: true,
       });
     }
   };
@@ -154,6 +157,7 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
         title: `Apagar "${name}"?`,
         description: "Esta ação não pode ser desfeita. A conversa e todas as suas mensagens serão permanentemente removidas.",
         onConfirm: () => onDeleteConversation(id),
+        isDestructive: true,
       });
     } else if (type === 'all') {
       setDialogState({
@@ -161,6 +165,7 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
         title: "Apagar TODAS as conversas?",
         description: "Esta ação não pode ser desfeita. Todas as conversas neste tópico serão permanentemente removidas.",
         onConfirm: onClearAll,
+        isDestructive: true,
       });
     }
   };
@@ -355,12 +360,14 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
               <AlertDialogTitle>{dialogState.title}</AlertDialogTitle>
               <AlertDialogDescription>{dialogState.description}</AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter>
-              {dialogState.onConfirm.name === 'onClearAll' || dialogState.onConfirm.name.includes('onDelete') ? (
+            {dialogState.isDestructive ? (
+              <AlertDialogFooter>
                 <AlertDialogCancel onClick={() => setDialogState(null)}>Cancelar</AlertDialogCancel>
-              ) : null}
-              <AlertDialogAction onClick={() => { dialogState.onConfirm(); setDialogState(null); }}>Ok</AlertDialogAction>
-            </AlertDialogFooter>
+                <AlertDialogAction onClick={() => { dialogState.onConfirm(); setDialogState(null); }} className={buttonVariants({ variant: "destructive" })}>Confirmar</AlertDialogAction>
+              </AlertDialogFooter>
+            ) : (
+              <AlertDialogFooter><AlertDialogAction onClick={() => { dialogState.onConfirm(); setDialogState(null); }}>Ok</AlertDialogAction></AlertDialogFooter>
+            )}
           </AlertDialogContent>
         </AlertDialog>
       )}
