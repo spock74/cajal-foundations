@@ -34,6 +34,7 @@ interface AppContextState {
   activeGroup: KnowledgeGroup | undefined;
   sourcesForActiveGroup: KnowledgeSource[];
   chatPlaceholder: string;
+  showModelSelect: boolean;
   activeConversationName: string;
   activeModel: string;
   isEvaluationPanelOpen: boolean;
@@ -84,8 +85,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [isLoading, setIsLoading] = useState(false);
   const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([]);
   const [allKnowledgeSources, setAllKnowledgeSources] = useState<KnowledgeSource[]>([]);
+  
+  // Lê a variável de ambiente para controlar a visibilidade do seletor de modelo.
+  const showModelSelect = import.meta.env.VITE_SHOW_MODEL_SELECT === 'true';
+
   const [activeModel, setActiveModel] = useState<string>(() => {
-    return localStorage.getItem('activeModel') || DEFAULT_MODEL;
+    // Se o seletor estiver oculto, força o modelo padrão. Caso contrário, usa o do localStorage ou o padrão.
+    return showModelSelect ? (localStorage.getItem('activeModel') || DEFAULT_MODEL) : 'gemini-2.5-flash-lite';
   });
 
   // Estado para o painel de avaliação
@@ -151,7 +157,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const handleSetModel = useCallback((modelName: string) => {
     setActiveModel(modelName);
-    localStorage.setItem('activeModel', modelName);
+    if (showModelSelect) {
+      localStorage.setItem('activeModel', modelName);
+    }
   }, []);
 
   const handleSetGroup = useCallback(async (groupId: string) => {
@@ -601,9 +609,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   const value = useMemo(() => ({
-      conversations, groups, activeGroupId, activeConversationId, isSidebarOpen, chatMessages, isLoading, libraryItems, allKnowledgeSources, libraryItemsForActiveContext, theme, activeGroup, sourcesForActiveGroup, chatPlaceholder, activeConversationName, activeModel, isEvaluationPanelOpen, isLibraryPanelOpen, activeQuizData,
+      conversations, groups, activeGroupId, activeConversationId, isSidebarOpen, chatMessages, isLoading, libraryItems, allKnowledgeSources, libraryItemsForActiveContext, theme, activeGroup, sourcesForActiveGroup, chatPlaceholder, showModelSelect, activeConversationName, activeModel, isEvaluationPanelOpen, isLibraryPanelOpen, activeQuizData,
       setTheme, setIsSidebarOpen, handleSetGroup, handleAddGroup, handleDeleteGroup, handleUpdateGroup, handleSetConversation, handleNewConversation, handleDeleteConversation, handleClearAllConversations, handleUrlAdd, handleFileAdd, handleRemoveSource, handleToggleSourceSelection, handleSaveToLibrary, handleDeleteLibraryItem, handleOpenLibraryItem, handleSendMessage, handleOptimizePrompt, handleGenerateMindMap, generateUsageReport, handleSetModel, handleMindMapLayoutChange, handleStartEvaluation, handleCloseEvaluation, setIsLibraryPanelOpen
-  }), [conversations, groups, activeGroupId, activeConversationId, isSidebarOpen, chatMessages, isLoading, libraryItems, allKnowledgeSources, libraryItemsForActiveContext, theme, activeGroup, sourcesForActiveGroup, chatPlaceholder, activeConversationName, activeModel, isEvaluationPanelOpen, isLibraryPanelOpen, activeQuizData, handleSetGroup, handleAddGroup, handleDeleteGroup, handleUpdateGroup, handleSetConversation, handleNewConversation, handleDeleteConversation, handleClearAllConversations, handleUrlAdd, handleFileAdd, handleRemoveSource, handleToggleSourceSelection, handleSaveToLibrary, handleDeleteLibraryItem, handleOpenLibraryItem, handleSendMessage, handleOptimizePrompt, handleGenerateMindMap, generateUsageReport, handleSetModel, handleMindMapLayoutChange, handleStartEvaluation, handleCloseEvaluation, setIsLibraryPanelOpen]);
+  }), [conversations, groups, activeGroupId, activeConversationId, isSidebarOpen, chatMessages, isLoading, libraryItems, allKnowledgeSources, libraryItemsForActiveContext, theme, activeGroup, sourcesForActiveGroup, chatPlaceholder, showModelSelect, activeConversationName, activeModel, isEvaluationPanelOpen, isLibraryPanelOpen, activeQuizData, handleSetGroup, handleAddGroup, handleDeleteGroup, handleUpdateGroup, handleSetConversation, handleNewConversation, handleDeleteConversation, handleClearAllConversations, handleUrlAdd, handleFileAdd, handleRemoveSource, handleToggleSourceSelection, handleSaveToLibrary, handleDeleteLibraryItem, handleOpenLibraryItem, handleSendMessage, handleOptimizePrompt, handleGenerateMindMap, generateUsageReport, handleSetModel, handleMindMapLayoutChange, handleStartEvaluation, handleCloseEvaluation, setIsLibraryPanelOpen]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

@@ -12,7 +12,7 @@ import LibraryPanel from "./LibraryPanel";
 import { Toaster } from "@/components/ui/toaster";
 import { EvaluationPanel } from "@/components/EvaluationPanel";
 import UsageReportPanel, { ModelUsage } from "@/components/UsageReportPanel";
-import { sampleQuizData } from "@/data/sampleQuiz";
+import { sampleQuizData } from "@/data/pedagogical_content/formative_quizzes/cardiologia_basica_qf_v1";
 
 const App: React.FC = () => {
   const {
@@ -20,7 +20,7 @@ const App: React.FC = () => {
     conversations, activeConversationId, handleSetConversation, handleNewConversation, handleDeleteConversation, handleClearAllConversations,
     sourcesForActiveGroup, handleUrlAdd, handleFileAdd, handleRemoveSource, handleToggleSourceSelection,
     chatMessages, isLoading, handleSendMessage,
-    libraryItemsForActiveContext, handleDeleteLibraryItem, handleOpenLibraryItem, handleSaveToLibrary, handleOptimizePrompt, activeModel, handleSetModel, generateUsageReport,
+    libraryItemsForActiveContext, handleDeleteLibraryItem, handleOpenLibraryItem, handleSaveToLibrary, handleOptimizePrompt, activeModel, handleSetModel, generateUsageReport, showModelSelect,
     theme, setTheme,
     isSidebarOpen, setIsSidebarOpen,
     chatPlaceholder, activeConversationName, handleGenerateMindMap, handleStartEvaluation, isLibraryPanelOpen, setIsLibraryPanelOpen,
@@ -69,6 +69,7 @@ const App: React.FC = () => {
               onToggleSourceSelection={handleToggleSourceSelection}
               activeModel={activeModel}
               onSetModel={handleSetModel}
+              showModelSelect={showModelSelect}
             />
           </div>
 
