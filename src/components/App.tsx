@@ -12,9 +12,9 @@ import ChatInterface from "./ChatInterface";
 import LibraryPanel from "./LibraryPanel";
 import AuthPage from "./AuthPage";
 import { Toaster } from "@/components/ui/toaster";
-import { EvaluationPanel } from "@/components/EvaluationPanel";
+import EvaluationContainer from "@/components/EvaluationPanel";
 import UsageReportPanel, { ModelUsage } from "@/components/UsageReportPanel";
-import { sampleQuizData } from "@/data/pedagogical_content/formative_quizzes/cardiologia_basica_qf_v1";
+import { sampleQuizData } from "@/data/sampleQuiz";
 
 const App: React.FC = () => {
   const {
@@ -23,8 +23,7 @@ const App: React.FC = () => {
     sourcesForActiveGroup, handleUrlAdd, handleFileAdd, handleRemoveSource, handleToggleSourceSelection,
     chatMessages, isLoading, handleSendMessage,
     libraryItemsForActiveContext, handleDeleteLibraryItem, handleOpenLibraryItem, handleSaveToLibrary, handleOptimizePrompt, activeModel, handleSetModel, generateUsageReport, showModelSelect,
-    theme, setTheme,
-    isSidebarOpen, setIsSidebarOpen,
+    theme, setTheme, isSidebarOpen, setIsSidebarOpen,
     chatPlaceholder, activeConversationName, handleGenerateMindMap, handleStartEvaluation, isLibraryPanelOpen, setIsLibraryPanelOpen,
     isEvaluationPanelOpen, activeQuizData, handleCloseEvaluation,
     handleMindMapLayoutChange
@@ -112,7 +111,7 @@ const App: React.FC = () => {
               onDeleteItem={handleDeleteLibraryItem} 
               onItemClick={handleOpenLibraryItem} 
               onOpenReport={handleOpenReportPanel} 
-              onStartEvaluation={() => handleStartEvaluation(sampleQuizData)}
+              onStartEvaluation={() => handleStartEvaluation(sampleQuizData)} // Corrigido para usar os dados importados
               onClose={() => setIsLibraryPanelOpen(false)}
             />
           </div>
@@ -130,11 +129,7 @@ const App: React.FC = () => {
           onClose={() => setIsReportPanelOpen(false)}
           data={reportData}
         />
-        <EvaluationPanel 
-          isOpen={isEvaluationPanelOpen}
-          onClose={handleCloseEvaluation}
-          quizData={activeQuizData}
-        />
+        <EvaluationContainer />
       </div>
     </>
   );
