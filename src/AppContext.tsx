@@ -14,10 +14,13 @@ import {
   QuizData,
 } from './types';
 import { DEFAULT_MODEL, models as modelInfoConfig } from './components/models';
+import { useAuth } from './hooks/useAuth';
+import { firestore } from '@/firebaseConfig';
 import { geminiService } from './services/geminiService';
 import { db } from './services/dbService';
 import { sourceManagerService } from './services/sourceManagerService';
 import { useToast } from '@/hooks/use-toast';
+import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, query, orderBy, serverTimestamp, getDocs, writeBatch } from 'firebase/firestore';
 
 interface AppContextState {
   conversations: Conversation[];
@@ -76,6 +79,7 @@ type AppContextType = AppContextState & AppContextActions;
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => { // NOSONAR
+  const { user } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [groups, setGroups] = useState<KnowledgeGroup[]>([]);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
@@ -115,37 +119,69 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem('theme', theme);
   }, [theme]);
 
+  // Efeito para sincronizar os Tópicos (Knowledge Groups) com o Firestore
   useEffect(() => {
-    async function loadInitialData() {
-      setIsLoading(true);
-      try {
-        let savedGroups = await db.getAllKnowledgeGroups();
-        if (savedGroups.length === 0) {
-          const defaultGroup = { id: `group-${Date.now()}`, name: "Tópico Geral", sources: [] };
-          await db.addKnowledgeGroup(defaultGroup);
-          savedGroups = [defaultGroup];
-        }
-        setGroups(savedGroups);
-        
-        const lastActiveGroupId = savedGroups[0].id;
-        setActiveGroupId(lastActiveGroupId);
-
-        const convosForGroup = await db.getConversationsForGroup(lastActiveGroupId);
-        setConversations(convosForGroup);
-        
-        const items = await db.getAllSavedItems();
-        setLibraryItems(items);
-
-        const sources = await db.getAllSourcesMetadata();
-        setAllKnowledgeSources(sources);
-      } catch (error) {
-        console.error("Erro ao carregar dados iniciais:", error);
-      } finally {
-        setIsLoading(false);
-      }
+    // Se não houver usuário logado, não faz nada e limpa o estado.
+    if (!user) {
+      setGroups([]);
+      setConversations([]);
+      setChatMessages([]);
+      setActiveGroupId(null);
+      setActiveConversationId(null);
+      return;
     }
-    loadInitialData();
-  }, []);
+
+    setIsLoading(true);
+    // Referência para a subcoleção 'groups' do usuário logado
+    const groupsCollectionRef = collection(firestore, 'users', user.uid, 'groups');
+    const q = query(groupsCollectionRef, orderBy('createdAt', 'desc'));
+
+    // onSnapshot cria um listener em tempo real
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      const fetchedGroups = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      } as KnowledgeGroup));
+      setGroups(fetchedGroups);
+
+      // Se o grupo ativo foi deletado ou não existe mais,
+      // seleciona o primeiro da lista ou define como nulo se a lista estiver vazia.
+      if (!activeGroupId || !fetchedGroups.some(g => g.id === activeGroupId)) {
+        setActiveGroupId(fetchedGroups[0]?.id || null);
+      }
+      setIsLoading(false);
+    }, (error) => {
+      console.error("Erro ao buscar grupos do Firestore:", error);
+      toast({ variant: "destructive", title: "Erro de Conexão", description: "Não foi possível carregar seus tópicos." });
+      setIsLoading(false);
+    });
+
+    // Função de limpeza: remove o listener quando o componente desmonta ou o usuário muda
+    return () => unsubscribe();
+  }, [user, activeGroupId]); // Re-executa se o usuário mudar
+
+  // Efeito para carregar as conversas do grupo ativo a partir do Firestore
+  useEffect(() => {
+    if (!user || !activeGroupId) {
+      setConversations([]);
+      return;
+    }
+
+    const convosRef = collection(firestore, 'users', user.uid, 'groups', activeGroupId, 'conversations');
+    const q = query(convosRef, orderBy('timestamp', 'desc'));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetchedConversations = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      } as Conversation));
+      setConversations(fetchedConversations);
+    }, (error) => {
+      console.error("Erro ao buscar conversas:", error);
+    });
+
+    return () => unsubscribe();
+  }, [user, activeGroupId]);
 
   const activeGroup = groups.find(g => g.id === activeGroupId);
   const sourcesForActiveGroup = activeGroup ? activeGroup.sources : [];
@@ -164,45 +200,44 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const handleSetGroup = useCallback(async (groupId: string) => {
     setActiveGroupId(groupId);
-    const convosForGroup = await db.getConversationsForGroup(groupId);
-    setConversations(convosForGroup);
+    // O useEffect acima cuidará de carregar as conversas
     setActiveConversationId(null);
     setChatMessages([]);
   }, []);
 
   const handleAddGroup = useCallback(async (name: string) => {
-    const newGroup = { id: `group-${Date.now()}`, name, sources: [] };
-    await db.addKnowledgeGroup(newGroup);
-    setGroups(prev => [...prev, newGroup]);
-    await handleSetGroup(newGroup.id);
-  }, [handleSetGroup]);
+    if (!user) return;
+    const groupsCollectionRef = collection(firestore, 'users', user.uid, 'groups');
+    await addDoc(groupsCollectionRef, { name, createdAt: serverTimestamp(), sources: [] });
+    // O listener onSnapshot cuidará de atualizar a UI.
+    // O novo grupo será o primeiro da lista e será selecionado automaticamente.
+  }, [user]);
 
   const handleDeleteGroup = useCallback(async (groupId: string) => {
-    await db.deleteKnowledgeGroup(groupId);
-    const remainingGroups = groups.filter(g => g.id !== groupId);
-    setGroups(remainingGroups);
+    if (!user) return;
+    
+    // Deleta o documento do grupo no Firestore
+    const groupDocRef = doc(firestore, 'users', user.uid, 'groups', groupId);
+    await deleteDoc(groupDocRef);
 
-    if (activeGroupId === groupId) {
-      if (remainingGroups.length > 0) {
-        await handleSetGroup(remainingGroups[0].id);
-      } else {
-        // Lidar com o caso em que não há mais grupos
-      }
-    }
-    toast({ title: "Tópico removido", description: "O tópico e todas as suas conversas foram removidos." });
-  }, [groups, activeGroupId, handleSetGroup, toast]);
+    // O listener onSnapshot atualizará o estado da UI automaticamente.
+    toast({ title: "Tópico removido" });
+  }, [user, toast]);
 
   const handleUpdateGroup = useCallback(async (groupId: string, newName: string) => {
-    await db.knowledgeGroups.update(groupId, { name: newName });
-    setGroups(prev => prev.map(g => g.id === groupId ? { ...g, name: newName } : g));
+    if (!user) return;
+
+    const groupDocRef = doc(firestore, 'users', user.uid, 'groups', groupId);
+    await updateDoc(groupDocRef, { name: newName });
+
+    // O listener onSnapshot atualizará o estado da UI automaticamente.
     toast({ title: "Tópico atualizado", description: `O nome do tópico foi alterado para "${newName}".` });
-  }, [toast]);
+  }, [user, toast]);
 
   const handleSetConversation = useCallback(async (id: string) => {
     if (id === activeConversationId) return;
-    const messages = await db.getMessagesForConversation(id);
-    setChatMessages(messages);
     setActiveConversationId(id);
+    // O useEffect abaixo cuidará de carregar as mensagens
   }, [activeConversationId]);
 
   const handleNewConversation = useCallback(() => {
@@ -211,86 +246,143 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   const handleDeleteConversation = useCallback(async (id: string) => {
-    await db.deleteConversation(id);
-    const newConversations = conversations.filter(c => c.id !== id);
-    setConversations(newConversations);
-    // Remove também os itens da biblioteca associados à conversa deletada do estado da UI.
-    setLibraryItems(prev => prev.filter(item => item.conversationId !== id));
-    if (activeConversationId === id) {
-      newConversations.length > 0 ? await handleSetConversation(newConversations[0].id) : handleNewConversation();
+    if (!user || !activeGroupId) {
+      toast({ variant: "destructive", title: "Erro", description: "Nenhum usuário ou tópico ativo." });
+      return;
     }
-  }, [conversations, activeConversationId, handleSetConversation, handleNewConversation]);
+
+    const convoDocRef = doc(firestore, 'users', user.uid, 'groups', activeGroupId, 'conversations', id);
+    
+    // Deleta a conversa e suas subcoleções (mensagens)
+    // O Firestore não deleta subcoleções automaticamente, então precisamos fazer isso manualmente.
+    const messagesRef = collection(convoDocRef, 'messages');
+    const messagesSnapshot = await getDocs(messagesRef);
+    const batch = writeBatch(firestore);
+    messagesSnapshot.forEach(doc => {
+      batch.delete(doc.ref);
+    });
+    await batch.commit();
+
+    await deleteDoc(convoDocRef);
+
+    // O listener de conversas atualizará a UI.
+    toast({ title: "Conversa removida" });
+
+    // Se a conversa ativa foi deletada, limpa a seleção.
+    if (id === activeConversationId) {
+      setActiveConversationId(null);
+      setChatMessages([]);
+    }
+  }, [user, activeGroupId, activeConversationId, toast]);
+
+  // Efeito para carregar as mensagens da conversa ativa
+  useEffect(() => {
+    if (!user || !activeGroupId || !activeConversationId) {
+      setChatMessages([]);
+      return;
+    }
+
+    const messagesRef = collection(firestore, 'users', user.uid, 'groups', activeGroupId, 'conversations', activeConversationId, 'messages');
+    const q = query(messagesRef, orderBy('timestamp', 'asc'));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetchedMessages = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      } as ChatMessage));
+      setChatMessages(fetchedMessages);
+    }, (error) => {
+      console.error("Erro ao buscar mensagens:", error);
+    });
+
+    return () => unsubscribe();
+  }, [user, activeGroupId, activeConversationId]);
 
   const handleClearAllConversations = useCallback(async () => {
-    // Limpa explicitamente todas as tabelas de dados, incluindo as fontes.
-    await db.clearAllData();
-    // A tabela que armazena o conteúdo dos arquivos precisa ser limpa.
-    // O erro indica que 'db.sources' não existe. A tabela é provavelmente
-    // nomeada de outra forma, como 'sourceContents'.
-    await db.sourceContents.clear();
+    if (!user) {
+      toast({ variant: "destructive", title: "Erro", description: "Nenhum usuário logado." });
+      return;
+    }
 
-    // Reseta completamente o estado da aplicação para um estado inicial limpo.
-    setGroups([]);
-    setConversations([]);
-    setChatMessages([]);
-    setLibraryItems([]);
-    setAllKnowledgeSources([]);
-    setActiveGroupId(null);
-    setActiveConversationId(null);
-  }, []);
+    const { dismiss } = toast({ title: "Limpando todos os dados...", description: "Aguarde, isso pode levar um momento." });
+    setIsLoading(true);
+
+    try {
+      const groupsRef = collection(firestore, 'users', user.uid, 'groups');
+      const groupsSnapshot = await getDocs(groupsRef);
+      const batch = writeBatch(firestore);
+
+      for (const groupDoc of groupsSnapshot.docs) {
+        const conversationsRef = collection(groupDoc.ref, 'conversations');
+        const conversationsSnapshot = await getDocs(conversationsRef);
+
+        for (const convoDoc of conversationsSnapshot.docs) {
+          const messagesRef = collection(convoDoc.ref, 'messages');
+          const messagesSnapshot = await getDocs(messagesRef);
+          messagesSnapshot.forEach(messageDoc => batch.delete(messageDoc.ref));
+          batch.delete(convoDoc.ref);
+        }
+        batch.delete(groupDoc.ref);
+      }
+
+      await batch.commit();
+      await db.clearAllData(); // Limpa também o Dexie (biblioteca, etc.)
+
+      toast({ title: "Limpeza Concluída", description: "Todos os seus dados foram removidos." });
+    } catch (error) {
+      console.error("Erro ao limpar dados do Firestore:", error);
+      toast({ variant: "destructive", title: "Falha na Limpeza", description: "Não foi possível remover todos os dados." });
+    } finally {
+      setIsLoading(false);
+      dismiss();
+    }
+  }, [user, toast]);
 
   const handleUrlAdd = useCallback(async (url: string) => {
-    if (!activeGroupId) return;
+    if (!user || !activeGroupId) return;
     setIsLoading(true);
     try {
       const newSource = await sourceManagerService.addUrlSource(url, activeGroupId);
-      setAllKnowledgeSources(prev => prev.find(s => s.id === newSource.id) ? prev : [...prev, newSource]);
-      const updatedGroup = await db.knowledgeGroups.get(activeGroupId);
-      if (updatedGroup) {
-        const finalSources = [...updatedGroup.sources, newSource];
-        await db.knowledgeGroups.update(activeGroupId, { sources: finalSources });
-        setGroups(prev => prev.map(g => g.id === activeGroupId ? { ...g, sources: finalSources } : g));
-      }
+      const groupDocRef = doc(firestore, 'users', user.uid, 'groups', activeGroupId);
+      const currentGroup = groups.find(g => g.id === activeGroupId);
+      const updatedSources = [...(currentGroup?.sources || []), newSource];
+      await updateDoc(groupDocRef, { sources: updatedSources });
+      // O listener do Firestore atualizará a UI.
     } catch (error) {
       toast({
         variant: "destructive",
         title: "Erro ao Adicionar URL",
         description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido.",
       });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [activeGroupId, toast]);
+    } finally { setIsLoading(false); }
+  }, [user, activeGroupId, groups, toast]);
   
   const handleFileAdd = useCallback(async (file: File) => {
-    if (!activeGroupId) return;
+    if (!user || !activeGroupId) return;
     setIsLoading(true);
     try {
       const newSource = await sourceManagerService.addFileSource(file, activeGroupId);
-      setAllKnowledgeSources(prev => prev.find(s => s.id === newSource.id) ? prev : [...prev, newSource]);
-      const updatedGroup = await db.knowledgeGroups.get(activeGroupId);
-      if (updatedGroup) {
-        const finalSources = [...updatedGroup.sources, newSource];
-        await db.knowledgeGroups.update(activeGroupId, { sources: finalSources });
-        setGroups(prev => prev.map(g => g.id === activeGroupId ? { ...g, sources: finalSources } : g));
-      }
+      const groupDocRef = doc(firestore, 'users', user.uid, 'groups', activeGroupId);
+      const currentGroup = groups.find(g => g.id === activeGroupId);
+      const updatedSources = [...(currentGroup?.sources || []), newSource];
+      await updateDoc(groupDocRef, { sources: updatedSources });
+      // O listener do Firestore atualizará a UI.
     } catch (error) {
       toast({
         variant: "destructive",
         title: "Erro ao Adicionar Arquivo",
         description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido.",
       });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [activeGroupId, toast]);
+    } finally { setIsLoading(false); }
+  }, [user, activeGroupId, groups, toast]);
 
   const handleRemoveSource = useCallback(async (sourceId: string) => {
-    if (!activeGroupId) return;
-    await db.deleteSource(sourceId);
-    setAllKnowledgeSources(prev => prev.filter(s => s.id !== sourceId));
-    setGroups(prev => prev.map(g => g.id === activeGroupId ? { ...g, sources: g.sources.filter(s => s.id !== sourceId) } : g));
-  }, [activeGroupId]);
+    if (!user || !activeGroupId) return;
+    const groupDocRef = doc(firestore, 'users', user.uid, 'groups', activeGroupId);
+    const currentGroup = groups.find(g => g.id === activeGroupId);
+    const updatedSources = currentGroup?.sources.filter(s => s.id !== sourceId) || [];
+    await updateDoc(groupDocRef, { sources: updatedSources });
+  }, [user, activeGroupId, groups]);
 
   const handleToggleSourceSelection = useCallback((sourceId: string) => { // Esta função precisa atualizar o grupo também
     setGroups(prevGroups => prevGroups.map(g => {
@@ -361,40 +453,53 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [activeGroupId, activeConversationId, handleSetGroup, handleSetConversation]);
   
   const handleSendMessage = useCallback(async (query: string, sourceIds: string[], actualPrompt?: string) => {
-    if (!query.trim() || isLoading || !activeGroupId) return;
+    if (!query.trim() || isLoading || !user || !activeGroupId) return;
     const promptForAI = actualPrompt || query;
     setIsLoading(true);
     let currentConversationId = activeConversationId;
     if (!currentConversationId) {
-      const newConversationId = `convo-${Date.now()}`;
       const title = await geminiService.generateTitleForConversation(query, activeModel);
-      const newConversation: Conversation = { id: newConversationId, name: title, groupId: activeGroupId, timestamp: new Date() };
-      await db.addConversation(newConversation);
-      // Correção: Recarrega as conversas do DB para garantir a ordem correta.
-      const updatedConversations = await db.getConversationsForGroup(activeGroupId);
-      setConversations(updatedConversations);
-      setActiveConversationId(newConversationId);
-      currentConversationId = newConversationId;
+      const convosRef = collection(firestore, 'users', user.uid, 'groups', activeGroupId, 'conversations');
+      const newConvoDoc = await addDoc(convosRef, {
+        name: title,
+        groupId: activeGroupId,
+        timestamp: serverTimestamp(),
+      });
+      currentConversationId = newConvoDoc.id;
+      setActiveConversationId(currentConversationId);
     }
+
+    const messagesRef = collection(firestore, 'users', user.uid, 'groups', activeGroupId, 'conversations', currentConversationId, 'messages');
+
     const userMessage: ChatMessage = { id: `user-${Date.now()}`, conversationId: currentConversationId, text: query, sender: MessageSender.USER, timestamp: new Date(), sourceIds };
     const modelPlaceholder: ChatMessage = { id: `model-${Date.now()}`, conversationId: currentConversationId, text: 'Processando...', sender: MessageSender.MODEL, timestamp: new Date(), isLoading: true, sourceIds };
+    
     setChatMessages(prev => [...prev, userMessage, modelPlaceholder]);
-    await db.addChatMessage(userMessage);
-    await db.addChatMessage(modelPlaceholder);
+    
+    // Salva as mensagens no Firestore
+    await addDoc(messagesRef, { ...userMessage, timestamp: serverTimestamp() });
+    const modelPlaceholderDocRef = await addDoc(messagesRef, { ...modelPlaceholder, timestamp: serverTimestamp() });
+
     try {
       const selectedSources = allKnowledgeSources.filter(s => sourceIds.includes(s.id));
       const response = await geminiService.generateContentWithSources(promptForAI, selectedSources, activeModel);
-      const finalMessage: ChatMessage = { 
+      
+      // Cria o objeto base da mensagem final
+      const finalMessage: Partial<ChatMessage> = { 
         ...modelPlaceholder, 
         text: response.text, 
         isLoading: false, 
-        urlContext: response.urlContextMetadata, 
         mindMap: undefined,
         model: response.modelName,
         usageMetadata: response.usageMetadata,
       };
-      setChatMessages(prev => prev.map(msg => msg.id === modelPlaceholder.id ? finalMessage : msg));
-      await db.updateChatMessage(modelPlaceholder.id, finalMessage);
+      // Adiciona urlContext apenas se ele existir, para evitar 'undefined' no Firestore.
+      if (response.urlContextMetadata) {
+        finalMessage.urlContext = response.urlContextMetadata;
+      }
+
+      // A UI será atualizada pelo listener. Apenas atualizamos o documento no Firestore.
+      await updateDoc(modelPlaceholderDocRef, { ...finalMessage, timestamp: serverTimestamp() });
     } catch (e: any) {
       const errorMessage: ChatMessage = { ...modelPlaceholder, text: `Erro: ${e.message}`, sender: MessageSender.SYSTEM, isLoading: false };
       toast({
@@ -402,45 +507,49 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         title: "Erro na Resposta da IA",
         description: e.message,
       });
-      setChatMessages(prev => prev.map(msg => msg.id === modelPlaceholder.id ? errorMessage : msg));
-      await db.updateChatMessage(modelPlaceholder.id, errorMessage);
+      // A UI será atualizada pelo listener. Apenas atualizamos o documento no Firestore.
+      await updateDoc(modelPlaceholderDocRef, { ...errorMessage, timestamp: serverTimestamp() });
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, activeGroupId, activeConversationId, activeModel, allKnowledgeSources]);
+  }, [isLoading, activeGroupId, activeConversationId, activeModel, allKnowledgeSources, user]);
 
   const handleOptimizePrompt = useCallback(async (query: string, sourceIds: string[]) => {
-    if (!query.trim() || isLoading || !activeGroupId) return;
+    if (!query.trim() || isLoading || !user || !activeGroupId) return;
     setIsLoading(true);
     const { dismiss } = toast({
       title: "Otimizando Prompt...",
       description: "Aguarde enquanto a IA gera sugestões.",
     });
-
+  
     let currentConversationId = activeConversationId;
-    // Se não houver conversa ativa, cria uma nova.
     if (!currentConversationId) {
-      const newConversationId = `convo-${Date.now()}`;
       const title = await geminiService.generateTitleForConversation(query, activeModel);
-      const newConversation: Conversation = { id: newConversationId, name: title, groupId: activeGroupId, timestamp: new Date() };
-      await db.addConversation(newConversation);
-      const updatedConversations = await db.getConversationsForGroup(activeGroupId);
-      setConversations(updatedConversations);
-      setActiveConversationId(newConversationId);
-      currentConversationId = newConversationId;
+      const convosRef = collection(firestore, 'users', user.uid, 'groups', activeGroupId, 'conversations');
+      const newConvoDoc = await addDoc(convosRef, {
+        name: title,
+        groupId: activeGroupId,
+        timestamp: serverTimestamp(),
+      });
+      currentConversationId = newConvoDoc.id;
+      setActiveConversationId(currentConversationId);
     }
-
+  
+    const messagesRef = collection(firestore, 'users', user.uid, 'groups', activeGroupId, 'conversations', currentConversationId, 'messages');
+  
     const userMessage: ChatMessage = { id: `user-${Date.now()}`, conversationId: currentConversationId, text: query, sender: MessageSender.USER, timestamp: new Date(), sourceIds };
     const systemPlaceholder: ChatMessage = { id: `system-loading-${Date.now()}`, conversationId: currentConversationId, text: 'Otimizando prompt...', sender: MessageSender.SYSTEM, timestamp: new Date(), isLoading: true };
     
     setChatMessages(prev => [...prev, userMessage, systemPlaceholder]);
-    await db.addChatMessage(userMessage);
-    await db.addChatMessage(systemPlaceholder);
-
+    
+    // Salva as mensagens no Firestore
+    await addDoc(messagesRef, { ...userMessage, timestamp: serverTimestamp() });
+    const systemPlaceholderDocRef = await addDoc(messagesRef, { ...systemPlaceholder, timestamp: serverTimestamp() });
+  
     try {
       const selectedSources = allKnowledgeSources.filter(s => sourceIds.includes(s.id));
       const suggestions = await geminiService.generateOptimizedPrompts(query, selectedSources, activeModel);
-      
+  
       const systemMessage: ChatMessage = {
         ...systemPlaceholder,
         text: "Aqui estão algumas sugestões para refinar sua pergunta:",
@@ -448,12 +557,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         optimizedPrompts: suggestions,
         sourceIds: sourceIds,
       };
-
-      // Substitui o placeholder pela mensagem final com as sugestões
-      setChatMessages(prev => prev.map(msg => msg.id === systemPlaceholder.id ? systemMessage : msg));
-      await db.updateChatMessage(systemPlaceholder.id, systemMessage); // Persiste a mensagem com as sugestões
-
+  
+      // A UI será atualizada pelo listener. Apenas atualizamos o documento no Firestore.
+      await updateDoc(systemPlaceholderDocRef, { ...systemMessage, timestamp: serverTimestamp() });
+  
       toast({
+        variant: "success",
         title: "Sugestões Prontas!",
         description: "Escolha uma das opções para refinar sua pesquisa.",
       });
@@ -464,13 +573,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         title: "Erro ao Otimizar",
         description: e.message,
       });
-      setChatMessages(prev => prev.map(msg => msg.id === systemPlaceholder.id ? errorMessage : msg));
-      await db.updateChatMessage(systemPlaceholder.id, errorMessage);
+      await updateDoc(systemPlaceholderDocRef, { ...errorMessage, timestamp: serverTimestamp() });
     } finally { 
       setIsLoading(false); 
       dismiss();
     }
-  }, [isLoading, activeGroupId, activeConversationId, activeModel, allKnowledgeSources, toast]);
+  }, [isLoading, user, activeGroupId, activeConversationId, activeModel, allKnowledgeSources, toast]);
 
   const handleGenerateMindMap = useCallback(async (messageId: string, text: string) => {
     if (!activeConversationId) return;

@@ -1,6 +1,6 @@
 /**
  * @author José E. Moraes
- * @copyright 2025 - Todos os direitos reservados
+ * @copyright 2025 - Todos os direitos reservados.
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -8,6 +8,7 @@ import { ChatMessage, MessageSender, KnowledgeSource, OptimizedPrompt } from '..
 import MessageItem from './MessageItem';
 import ThemeSwitcher from './ThemeSwitcher';
 import { Send, Menu, Sparkles } from 'lucide-react';
+import { useAppContext } from '../AppContext';
 
 interface ChatInterfaceProps {
   activeSources: KnowledgeSource[];
@@ -42,6 +43,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 }) => {
   const [userQuery, setUserQuery] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { conversations, activeConversationId } = useAppContext();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -49,8 +51,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   useEffect(scrollToBottom, [messages]);
 
+  // A entrada de texto deve ser desabilitada se houver conversas mas nenhuma estiver ativa.
+  const isInputDisabled = isLoading || (conversations.length > 0 && !activeConversationId);
+
   const handleSend = () => {
-    if (userQuery.trim() && !isLoading) {
+    if (userQuery.trim() && !isInputDisabled) {
       const selectedSourceIds = activeSources.filter(s => s.selected).map(s => s.id);
       onSendMessage(userQuery.trim(), selectedSourceIds);
       setUserQuery('');
@@ -58,7 +63,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   };
 
   const handleOptimize = () => {
-    if (userQuery.trim() && !isLoading) {
+    if (userQuery.trim() && !isInputDisabled) {
       const selectedSourceIds = activeSources.filter(s => s.selected).map(s => s.id);
       onOptimizePrompt(userQuery.trim(), selectedSourceIds);
       setUserQuery('');
@@ -112,7 +117,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             placeholder={placeholderText || "Sua pergunta..."}
             className="flex-grow h-10 min-h-[40px] py-2 px-3 border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-500 rounded-xl focus:ring-2 focus:ring-blue-500/50 outline-none transition-shadow resize-none text-sm"
             rows={1}
-            disabled={isLoading}
+            disabled={isInputDisabled}
             onKeyPress={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -122,7 +127,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           />
           <button
             onClick={handleOptimize}
-            disabled={isLoading || !userQuery.trim()}
+            disabled={isInputDisabled || !userQuery.trim()}
             className="h-10 w-10 p-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl transition-colors disabled:bg-gray-300 dark:disabled:bg-white/5 disabled:text-gray-500 dark:disabled:text-gray-600 flex items-center justify-center flex-shrink-0"
             aria-label="Otimizar prompt"
           >
@@ -130,7 +135,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           </button>
           <button
             onClick={handleSend}
-            disabled={isLoading || !userQuery.trim()}
+            disabled={isInputDisabled || !userQuery.trim()}
             className="h-10 w-10 p-2 bg-gray-800 hover:bg-black dark:bg-white/10 dark:hover:bg-white/20 text-white rounded-xl transition-colors disabled:bg-gray-300 dark:disabled:bg-white/5 disabled:text-gray-500 dark:disabled:text-gray-600 flex items-center justify-center flex-shrink-0"
             aria-label="Enviar mensagem"
           >

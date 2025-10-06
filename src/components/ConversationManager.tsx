@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { Conversation, KnowledgeSource, KnowledgeGroup } from '../types';
-import { Plus, Trash2, MessageSquare, X, Check, Pencil } from 'lucide-react';
+import { Plus, Trash2, MessageSquare, X, Check, Pencil, LogOut } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -24,8 +24,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import KnowledgeBaseManager from './KnowledgeBaseManager';
+import { useAuth } from '@/hooks/useAuth';
 import { modelOptions } from './models';
 
 interface ConversationManagerProps {
@@ -80,6 +82,7 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
   onSetModel,
   showModelSelect,
 }) => {
+  const { user, logOut } = useAuth();
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
@@ -275,11 +278,12 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
               <li key={convo.id} className="flex items-center justify-between group rounded-md transition-colors hover:bg-gray-100 dark:hover:bg-white/5">
                 <button
                   onClick={() => onSetConversationId(convo.id)}
-                  className={`flex-grow flex items-center gap-3 p-2 text-sm text-left transition-colors rounded-md ${
+                  className={cn(
+                    "flex-grow flex items-center gap-3 p-2 text-sm text-left transition-colors rounded-md",
                     activeConversationId === convo.id
-                      ? 'bg-gray-800 text-white dark:bg-white/20'
+                      ? 'bg-gray-800 text-white dark:bg-white/20 border border-green-500' // Borda verde quando ativo
                       : 'text-gray-700 dark:text-gray-300'
-                  }`}
+                  )}
                 >
                   <MessageSquare size={16} className="flex-shrink-0" />
                   <span className="flex-grow truncate" title={convo.name}>{convo.name}</span>
@@ -316,14 +320,32 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
         </div>
       </div>
 
-      <div className="p-4 border-t border-gray-200 dark:border-[rgba(255,255,255,0.05)] flex-shrink-0">
-        <button
-          onClick={() => confirmDeletion('all')}
-          className="w-full flex items-center justify-center gap-2 text-sm p-2 rounded-md text-red-600 bg-red-500/10 hover:bg-red-500/20 transition-colors"
-        >
-          <Trash2 size={16} />
-          <span>Limpar Tudo</span>
-        </button>
+      <div className="p-3 border-t border-gray-200 dark:border-[rgba(255,255,255,0.05)] flex-shrink-0 space-y-3">
+        {/* Seção do Usuário */}
+        {user && (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 overflow-hidden">
+              {user.photoURL ? (
+                <img src={user.photoURL} alt="Avatar" className="w-7 h-7 rounded-full" />
+              ) : (
+                <div className="w-7 h-7 rounded-full bg-gray-300 dark:bg-gray-700 flex items-center justify-center text-xs font-bold">
+                  {user.email?.charAt(0).toUpperCase()}
+                </div>
+              )}
+              <span className="text-sm font-medium truncate" title={user.email || ''}>
+                {user.displayName || user.email}
+              </span>
+            </div>
+            <Button variant="ghost" size="icon" onClick={logOut} className="flex-shrink-0 text-muted-foreground hover:text-foreground" title="Sair">
+              <LogOut size={16} />
+            </Button>
+          </div>
+        )}
+        {/* Botão Limpar Tudo */}
+        <Button onClick={() => confirmDeletion('all')} variant="destructive" className="w-full h-9 bg-red-500/10 hover:bg-red-500/20 text-red-600">
+          <Trash2 size={16} className="mr-2" />
+          Limpar Tudo
+        </Button>
       </div>
 
       {dialogState && (

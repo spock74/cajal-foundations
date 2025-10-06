@@ -117,21 +117,8 @@ class SourceManagerService {
       content: content,
     };
     
-    // 5. Estratégia DB First
-    try {
-      const storedObject: StoredSource = { hashId, content, metadata: newSource };
-      await db.addSource(storedObject);
-    } catch (error) {
-      // O Dexie lança um erro 'ConstraintError' para chaves primárias duplicadas
-      if ((error as Error).name === 'ConstraintError') {
-        // Opcional: podemos querer carregar a fonte existente em vez de lançar um erro
-        console.warn(`Conteúdo do arquivo "${file.name}" já existe no banco de dados.`);
-        // Por agora, vamos tratar como um erro para o usuário.
-        throw new Error(`O arquivo "${file.name}" já foi adicionado anteriormente.`);
-      }
-      console.error("Erro ao salvar a fonte no banco de dados:", error);
-      throw new Error("Falha ao salvar a fonte no banco de dados local.");
-    }
+    // 5. O salvamento no DB agora é responsabilidade do AppContext,
+    // que sabe se deve usar Firestore ou Dexie.
     
     // 6. Retornar para o App.tsx
     return newSource;
@@ -158,9 +145,6 @@ class SourceManagerService {
       selected: true
     };
     
-    const storedObject: StoredSource = { hashId, content, metadata: newSource };
-    await db.addSource(storedObject); // Adiciona ao DB para consistência
-
     return newSource;
   }
 }
