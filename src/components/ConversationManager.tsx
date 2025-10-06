@@ -51,6 +51,7 @@ interface ConversationManagerProps {
   // Modelo
   activeModel: string;
   onSetModel: (modelName: string) => void;
+  showModelSelect: boolean;
   // Controles Gerais
   onClearAll: () => void;
   onCloseSidebar?: () => void;
@@ -77,6 +78,7 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
   onToggleSourceSelection,
   activeModel,
   onSetModel,
+  showModelSelect,
 }) => {
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
@@ -249,21 +251,23 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
         </div>
 
         {/* Seletor de Modelo */}
-        <div className="p-3 border-b border-gray-200 dark:border-[rgba(255,255,255,0.05)]">
-          <label className="block text-sm font-medium text-gray-500 dark:text-[#A8ABB4]">
-            Modelo da IA
-          </label>
-          <Select value={activeModel} onValueChange={onSetModel}>
-            <SelectTrigger className="w-full h-9 text-sm bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10">
-              <SelectValue placeholder="Selecione um modelo..." />
-            </SelectTrigger>
-            <SelectContent>
-              {modelOptions.map(model => (
-                <SelectItem key={model.name} value={model.name}>{model.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {showModelSelect && (
+          <div className="p-3 border-b border-gray-200 dark:border-[rgba(255,255,255,0.05)]">
+            <label className="block text-sm font-medium text-gray-500 dark:text-[#A8ABB4]">
+              Modelo da IA
+            </label>
+            <Select value={activeModel} onValueChange={onSetModel}>
+              <SelectTrigger className="w-full h-9 text-sm bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10">
+                <SelectValue placeholder="Selecione um modelo..." />
+              </SelectTrigger>
+              <SelectContent>
+                {modelOptions.map(model => (
+                  <SelectItem key={model.name} value={model.name}>{model.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         <div className="p-2">
           <ul className="space-y-1">

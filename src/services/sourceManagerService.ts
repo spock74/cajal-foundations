@@ -34,6 +34,18 @@ async function generateHash(text: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+/**
+ * Checks if a file is valid by verifying its MIME type or file extension.
+ * This provides a fallback for file types browsers may not correctly identify, like Markdown.
+ * @param file The file to validate.
+ * @returns True if the file is valid, false otherwise.
+ */
+function isFileValid(file: File): boolean {
+  const acceptedMimeTypes = APP_CONFIG.ACCEPTED_KNOWLEDGE_FILE_TYPES;
+  const acceptedExtensions = ['.pdf', '.md', '.txt'];
+  return acceptedMimeTypes.includes(file.type) || acceptedExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
+}
+
 class SourceManagerService {
   private static instance: SourceManagerService;
 
@@ -55,8 +67,8 @@ class SourceManagerService {
    */
   public async addFileSource(file: File, groupId: string): Promise<KnowledgeSource> {
     // 1. Validação
-    if (!APP_CONFIG.ACCEPTED_KNOWLEDGE_FILE_TYPES.includes(file.type)) {
-      throw new Error(`Tipo de arquivo '${file.type}' não é suportado.`);
+    if (!isFileValid(file)) {
+      throw new Error(`Tipo de arquivo '${file.type || file.name.split('.').pop()}' não é suportado.`);
     }
     if (file.size > MAX_FILE_SIZE_BYTES) {
       throw new Error(`Arquivo excede o limite de ${APP_CONFIG.MAX_FILE_SIZE_MB}MB.`);
