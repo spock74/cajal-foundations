@@ -9,7 +9,7 @@ import { LibraryItem } from '../types';
 
 interface LibraryPanelProps {
   items: LibraryItem[];
-  onDeleteItem: (id: number) => void;
+  onDeleteItem: (id: string) => void;
   onItemClick?: (item: LibraryItem) => void;
   onOpenReport?: () => void;
   onStartEvaluation?: () => void;

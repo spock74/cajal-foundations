@@ -5,7 +5,7 @@
 
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getFunctions } from "firebase/functions";
 
@@ -22,10 +22,25 @@ const firebaseConfig = {
 // Inicializa o Firebase
 const app = initializeApp(firebaseConfig);
 
+// Inicializa os serviços do Firebase
+const auth = getAuth(app);
+const firestore = getFirestore(app);
+const storage = getStorage(app);
+const functions = getFunctions(app);
+
+// Habilita a persistência offline para o Firestore.
+// Isso permite que o app funcione offline e sincronize quando a conexão for restaurada.
+enableIndexedDbPersistence(firestore).catch((err) => {
+  if (err.code == 'failed-precondition') {
+    // Múltiplas abas abertas podem causar este erro.
+    console.warn("A persistência do Firestore falhou em inicializar, talvez por múltiplas abas abertas.");
+  } else if (err.code == 'unimplemented') {
+    // Navegador não suportado.
+    console.error("Este navegador não suporta persistência offline do Firestore.");
+  }
+});
+
 // Exporta os serviços que serão utilizados na aplicação
-export const auth = getAuth(app);
-export const firestore = getFirestore(app);
-export const storage = getStorage(app);
-export const functions = getFunctions(app);
+export { auth, firestore, storage, functions };
 
 export default app;

@@ -97,7 +97,7 @@ export interface KnowledgeGroup {
 }
 
 export interface LibraryItem {
-  id?: number;
+  id: string;
   type: 'text' | 'mindmap';
   content: string;
   conversationId: string;

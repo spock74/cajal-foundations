@@ -17,10 +17,9 @@ import { DEFAULT_MODEL, models as modelInfoConfig } from './components/models';
 import { useAuth } from './hooks/useAuth';
 import { firestore } from '@/firebaseConfig';
 import { geminiService } from './services/geminiService';
-import { db } from './services/dbService';
 import { sourceManagerService } from './services/sourceManagerService';
 import { useToast } from '@/hooks/use-toast';
-import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, query, orderBy, serverTimestamp, getDocs, writeBatch } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, query, orderBy, serverTimestamp, getDocs, writeBatch, collectionGroup } from 'firebase/firestore';
 
 interface AppContextState {
   conversations: Conversation[];
@@ -31,7 +30,6 @@ interface AppContextState {
   chatMessages: ChatMessage[];
   isLoading: boolean;
   libraryItems: LibraryItem[];
-  allKnowledgeSources: KnowledgeSource[];
   libraryItemsForActiveContext: LibraryItem[];
   activeGroup: KnowledgeGroup | undefined;
   sourcesForActiveGroup: KnowledgeSource[];
@@ -57,7 +55,7 @@ interface AppContextActions {
   handleClearAllConversations: () => Promise<void>;
   handleUrlAdd: (url: string) => Promise<void>;
   handleFileAdd: (file: File) => Promise<void>;
-  handleRemoveSource: (sourceId: string) => Promise<void>;
+  handleRemoveSource: (sourceId: string) => Promise<void>; // NOSONAR
   handleToggleSourceSelection: (sourceId: string) => void;
   handleSaveToLibrary: (message: ChatMessage) => Promise<void>;
   handleDeleteLibraryItem: (id: number) => Promise<void>;
@@ -88,8 +86,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([]);
-  const [allKnowledgeSources, setAllKnowledgeSources] = useState<KnowledgeSource[]>([]);
   
+  const [sourcesForActiveGroup, setSourcesForActiveGroup] = useState<KnowledgeSource[]>([]);
   // Lê a variável de ambiente para controlar a visibilidade do seletor de modelo.
   const showModelSelect = import.meta.env.VITE_SHOW_MODEL_SELECT === 'true';
 
@@ -183,8 +181,31 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return () => unsubscribe();
   }, [user, activeGroupId]);
 
+  // Efeito para carregar as fontes de conhecimento (sources) do grupo ativo
+  useEffect(() => {
+    if (!user || !activeGroupId) {
+      setSourcesForActiveGroup([]);
+      return;
+    }
+
+    const sourcesRef = collection(firestore, 'users', user.uid, 'groups', activeGroupId, 'sources');
+    const q = query(sourcesRef, orderBy('timestamp', 'desc'));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetchedSources = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        timestamp: (doc.data().timestamp as any)?.toDate(),
+      } as KnowledgeSource));
+      setSourcesForActiveGroup(fetchedSources);
+    }, (error) => {
+      console.error("Erro ao buscar fontes de conhecimento:", error);
+    });
+
+    return () => unsubscribe();
+  }, [user, activeGroupId]);
+
   const activeGroup = groups.find(g => g.id === activeGroupId);
-  const sourcesForActiveGroup = activeGroup ? activeGroup.sources : [];
 
   // Filtra os itens da biblioteca para o grupo ativo.
   const libraryItemsForActiveContext = activeGroupId 
@@ -298,6 +319,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return () => unsubscribe();
   }, [user, activeGroupId, activeConversationId]);
 
+  // Efeito para carregar os itens da biblioteca a partir do Firestore
+  useEffect(() => {
+    if (!user) {
+      setLibraryItems([]);
+      return;
+    }
+
+    const libraryCollectionRef = collection(firestore, 'users', user.uid, 'libraryItems');
+    const q = query(libraryCollectionRef, orderBy('timestamp', 'desc'));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetchedLibraryItems = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        timestamp: (doc.data().timestamp as any)?.toDate(), // Convert Firestore Timestamp to Date
+      } as unknown as LibraryItem));
+      setLibraryItems(fetchedLibraryItems);
+    }, (error) => {
+      console.error("Erro ao buscar itens da biblioteca:", error);
+    });
+    return () => unsubscribe();
+  }, [user]);
+
   const handleClearAllConversations = useCallback(async () => {
     if (!user) {
       toast({ variant: "destructive", title: "Erro", description: "Nenhum usuário logado." });
@@ -326,7 +370,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
 
       await batch.commit();
-      await db.clearAllData(); // Limpa também o Dexie (biblioteca, etc.)
 
       toast({ title: "Limpeza Concluída", description: "Todos os seus dados foram removidos." });
     } catch (error) {
@@ -343,11 +386,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setIsLoading(true);
     try {
       const newSource = await sourceManagerService.addUrlSource(url, activeGroupId);
-      const groupDocRef = doc(firestore, 'users', user.uid, 'groups', activeGroupId);
-      const currentGroup = groups.find(g => g.id === activeGroupId);
-      const updatedSources = [...(currentGroup?.sources || []), newSource];
-      await updateDoc(groupDocRef, { sources: updatedSources });
-      // O listener do Firestore atualizará a UI.
+      const sourcesCollectionRef = collection(firestore, 'users', user.uid, 'groups', activeGroupId, 'sources');
+      await addDoc(sourcesCollectionRef, { ...newSource, timestamp: serverTimestamp() });
+      // O listener de sources cuidará de atualizar a UI.
     } catch (error) {
       toast({
         variant: "destructive",
@@ -355,18 +396,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido.",
       });
     } finally { setIsLoading(false); }
-  }, [user, activeGroupId, groups, toast]);
-  
+  }, [user, activeGroupId, toast]);
+
   const handleFileAdd = useCallback(async (file: File) => {
     if (!user || !activeGroupId) return;
     setIsLoading(true);
     try {
       const newSource = await sourceManagerService.addFileSource(file, activeGroupId);
-      const groupDocRef = doc(firestore, 'users', user.uid, 'groups', activeGroupId);
-      const currentGroup = groups.find(g => g.id === activeGroupId);
-      const updatedSources = [...(currentGroup?.sources || []), newSource];
-      await updateDoc(groupDocRef, { sources: updatedSources });
-      // O listener do Firestore atualizará a UI.
+      const sourcesCollectionRef = collection(firestore, 'users', user.uid, 'groups', activeGroupId, 'sources');
+      await addDoc(sourcesCollectionRef, { ...newSource, timestamp: serverTimestamp() });
+      // O listener de sources cuidará de atualizar a UI.
     } catch (error) {
       toast({
         variant: "destructive",
@@ -374,51 +413,76 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido.",
       });
     } finally { setIsLoading(false); }
-  }, [user, activeGroupId, groups, toast]);
+  }, [user, activeGroupId, toast]);
 
   const handleRemoveSource = useCallback(async (sourceId: string) => {
     if (!user || !activeGroupId) return;
-    const groupDocRef = doc(firestore, 'users', user.uid, 'groups', activeGroupId);
-    const currentGroup = groups.find(g => g.id === activeGroupId);
-    const updatedSources = currentGroup?.sources.filter(s => s.id !== sourceId) || [];
-    await updateDoc(groupDocRef, { sources: updatedSources });
-  }, [user, activeGroupId, groups]);
+    const sourceDocRef = doc(firestore, 'users', user.uid, 'groups', activeGroupId, 'sources', sourceId);
+    await deleteDoc(sourceDocRef);
+    toast({ title: "Fonte removida", description: "A fonte de conhecimento foi removida do tópico." });
+  }, [user, activeGroupId, toast]);
+
+  const handleToggleSourceSelection = useCallback(async (sourceId: string) => {
+    if (!user || !activeGroupId) return;
+
+    const sourceToUpdate = sourcesForActiveGroup.find(s => s.id === sourceId);
+    if (!sourceToUpdate) return;
+
+    const sourceDocRef = doc(firestore, 'users', user.uid, 'groups', activeGroupId, 'sources', sourceId);
+    await updateDoc(sourceDocRef, { selected: !sourceToUpdate.selected });
+    // O listener onSnapshot cuidará de atualizar a UI.
+  }, [user, activeGroupId, sourcesForActiveGroup]);
 
   const handleSaveToLibrary = useCallback(async (message: ChatMessage) => {
-    if (!activeGroupId || !activeConversationId) return;
-    const newItem: LibraryItem = {
+    if (!user || !activeGroupId || !activeConversationId) return;
+    const newItem = {
       type: 'text',
       content: message.text, 
       timestamp: new Date(),
       conversationId: activeConversationId,
       groupId: activeGroupId,
-      messageId: message.id,
+      messageId: message.id, // Firestore will generate its own ID for the library item
       sourceIds: message.sourceIds || []
     };
-    const id = await db.addSavedItem(newItem);
-    setLibraryItems(prev => [...prev, { ...newItem, id }].sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime()));
-  }, [activeGroupId, activeConversationId]);
 
-  const handleDeleteLibraryItem = useCallback(async (id: number) => {
-    const itemToDelete = libraryItems.find(item => item.id === id);
-    if (!itemToDelete) return;
+    const libraryCollectionRef = collection(firestore, 'users', user.uid, 'libraryItems');
+    await addDoc(libraryCollectionRef, { ...newItem, timestamp: serverTimestamp() });
+    // The onSnapshot for libraryItems will update the state.
+    toast({ title: "Salvo na Biblioteca", description: "A mensagem foi adicionada à sua biblioteca." });
+  }, [user, activeGroupId, activeConversationId, toast]);
+
+  const handleDeleteLibraryItem = useCallback(async (id: string | number) => {
+    if (!user) return;
+
+    // Find the item in the local state to get its details (groupId, conversationId, messageId)
+    const itemToDelete = libraryItems.find(item => item.id === id); // 'id' here is the Firestore doc ID
+    if (!itemToDelete || !itemToDelete.groupId || !itemToDelete.conversationId || !itemToDelete.messageId) {
+      toast({ variant: "destructive", title: "Erro", description: "Item da biblioteca não encontrado ou incompleto." });
+      return;
+    }
 
     // Se o item for um mapa mental, "desarquiva" na mensagem original.
     if (itemToDelete.type === 'mindmap' && itemToDelete.messageId) {
-      const messageId = itemToDelete.messageId;
       setChatMessages(prev => prev.map(msg => {
-        if (msg.id === messageId && msg.mindMap) {
+        if (msg.id === itemToDelete.messageId && msg.mindMap) {
           const updatedMindMap = { ...msg.mindMap, isArchived: false, isVisible: false };
-          db.updateChatMessage(messageId, { mindMap: updatedMindMap });
           return { ...msg, mindMap: updatedMindMap };
         }
         return msg;
       }));
     }
 
-    await db.deleteSavedItem(id);
-    setLibraryItems(prev => prev.filter(item => item.id !== id));
-  }, [libraryItems]);
+    // Update Firestore for the message's mindMap state
+    if (itemToDelete.type === 'mindmap' && itemToDelete.messageId) {
+      const messageDocRef = doc(firestore, 'users', user.uid, 'groups', itemToDelete.groupId, 'conversations', itemToDelete.conversationId, 'messages', itemToDelete.messageId);
+      await updateDoc(messageDocRef, { 'mindMap.isArchived': false, 'mindMap.isVisible': false });
+    }
+
+    // Delete the library item from Firestore
+    const libraryItemDocRef = doc(firestore, 'users', user.uid, 'libraryItems', String(id));
+    await deleteDoc(libraryItemDocRef);
+    toast({ title: "Item removido da Biblioteca" });
+  }, [user, libraryItems, toast]);
 
   const handleOpenLibraryItem = useCallback(async (item: LibraryItem) => {
     // Navega para o grupo e conversa corretos
@@ -438,7 +502,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return msg;
       }));
     }
-  }, [activeGroupId, activeConversationId, handleSetGroup, handleSetConversation]);
+  }, [activeGroupId, activeConversationId, handleSetGroup, handleSetConversation, user]);
   
   const handleSendMessage = useCallback(async (query: string, sourceIds: string[], actualPrompt?: string) => {
     if (!query.trim() || isLoading || !user || !activeGroupId) return;
@@ -499,7 +563,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, activeGroupId, activeConversationId, activeModel, allKnowledgeSources, user]);
+  }, [isLoading, activeGroupId, activeConversationId, activeModel, sourcesForActiveGroup, user, toast]);
 
   const handleOptimizePrompt = useCallback(async (query: string, sourceIds: string[]) => {
     if (!query.trim() || isLoading || !user || !activeGroupId) return;
@@ -577,7 +641,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setIsLoading(false); 
       dismiss();
     }
-  }, [isLoading, user, activeGroupId, activeConversationId, activeModel, allKnowledgeSources, toast]);
+  }, [isLoading, user, activeGroupId, activeConversationId, activeModel, sourcesForActiveGroup, toast, handleSetConversation]);
 
   const handleGenerateMindMap = useCallback(async (messageId: string, text: string) => {
     if (!activeConversationId) return;
@@ -590,31 +654,36 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Se o mapa já foi gerado, apenas alterna a visibilidade.
     if (existingMindMap && existingMindMap.nodes.length > 0) {
       const updatedMindMap = { ...existingMindMap, isVisible: !existingMindMap.isVisible };
+      // Atualiza o estado local para feedback imediato
       setChatMessages(prev => prev.map(msg => msg.id === messageId ? { ...msg, mindMap: updatedMindMap } : msg));
-      await db.updateChatMessage(messageId, { mindMap: updatedMindMap });
+      // Persiste a mudança no Firestore
+      if (user && activeGroupId && activeConversationId) {
+        const messageDocRef = doc(firestore, 'users', user.uid, 'groups', activeGroupId, 'conversations', activeConversationId, 'messages', messageId);
+        await updateDoc(messageDocRef, { mindMap: updatedMindMap });
+      }
       dismiss();
       return;
     }
 
     // Se não existe, procede com a geração.
-    const updateMindMapState = (update: Partial<ChatMessage>) => {
-      setChatMessages(prev => {
-        const newMessages = prev.map(msg => msg.id === messageId ? { ...msg, ...update } : msg);
-        const messageToUpdate = newMessages.find(msg => msg.id === messageId);
-        if (messageToUpdate) db.updateChatMessage(messageId, messageToUpdate);
-        return newMessages;
-      });
+    const updateMindMapState = async (update: Partial<ChatMessage>) => {
+      setChatMessages(prev => prev.map(msg => msg.id === messageId ? { ...msg, ...update } : msg));
+      // Persiste a mudança no Firestore
+      if (user && activeGroupId && activeConversationId && update.mindMap) {
+        const messageDocRef = doc(firestore, 'users', user.uid, 'groups', activeGroupId, 'conversations', activeConversationId, 'messages', messageId);
+        await updateDoc(messageDocRef, { mindMap: update.mindMap });
+      }
     };
 
-    updateMindMapState({ mindMap: { isVisible: true, isLoading: true, error: null, nodes: [], edges: [] } });
+    await updateMindMapState({ mindMap: { isVisible: true, isLoading: true, error: null, nodes: [], edges: [] } });
     try {
       const { title, nodes, edges } = await geminiService.generateMindMapFromText(text, activeModel);
       if (nodes.length === 0) throw new Error("Não foi possível extrair conceitos para o mapa mental.");
       const rootNode = nodes.find(n => !edges.some(e => e.target === n.id)) || nodes[0];
       
       // Salva o mapa mental na biblioteca
-      const libraryItem: LibraryItem = {
-        type: 'mindmap',
+      const libraryItem = {
+        type: 'mindmap', // O tipo do item é 'mindmap'
         content: title, // O título do mapa vai para o conteúdo do item da biblioteca
         timestamp: new Date(),
         conversationId: activeConversationId,
@@ -622,10 +691,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         messageId: messageId,
         sourceIds: currentMessage?.sourceIds || []
       };
-      const libId = await db.addSavedItem(libraryItem);
-      setLibraryItems(prev => [...prev, { ...libraryItem, id: libId }].sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime()));
+      if (user) {
+        const libraryCollectionRef = collection(firestore, 'users', user.uid, 'libraryItems');
+        await addDoc(libraryCollectionRef, { ...libraryItem, timestamp: serverTimestamp() });
+      }
 
-      updateMindMapState({ 
+      await updateMindMapState({ 
         mindMap: { 
           title: title,
           isVisible: true, 
@@ -644,27 +715,39 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         title: "Erro no Mapa Mental",
         description: e.message,
       });
-      updateMindMapState({ mindMap: { isVisible: true, isLoading: false, error: e.message, nodes: [], edges: [] } });
+      await updateMindMapState({ mindMap: { isVisible: true, isLoading: false, error: e.message, nodes: [], edges: [] } });
     } finally {
       if (!existingMindMap) { // Only dismiss if it was a new generation
         dismiss();
       }
     }
-  }, [activeConversationId, chatMessages, activeModel, activeGroupId, toast]);
+  }, [user, activeConversationId, chatMessages, activeModel, activeGroupId, toast]);
 
   const handleMindMapLayoutChange = useCallback((messageId: string, layout: { expandedNodeIds?: string[], nodePositions?: { [nodeId: string]: { x: number, y: number } } }) => {
+    if (!user || !activeGroupId || !activeConversationId) return;
+  
+    // Atualiza o estado local para feedback imediato
     setChatMessages(prev => prev.map(msg => {
       if (msg.id === messageId && msg.mindMap) {
-        const updatedMindMap = { ...msg.mindMap, ...layout };
-        db.updateChatMessage(messageId, { mindMap: updatedMindMap });
-        return { ...msg, mindMap: updatedMindMap };
+        return { ...msg, mindMap: { ...msg.mindMap, ...layout } };
       }
       return msg;
     }));
-  }, []);
+  }, [user, activeGroupId, activeConversationId]);
 
   const generateUsageReport = useCallback(async () => {
-    const allMessages = await db.chatMessages.toArray();
+    if (!user) return [];
+
+    // Use a collection group query to get all messages from all conversations
+    const messagesCollectionGroupRef = collectionGroup(firestore, `users/${user.uid}/groups`);
+    const q = query(messagesCollectionGroupRef);
+    const querySnapshot = await getDocs(q);
+
+    const allMessages: ChatMessage[] = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    } as ChatMessage));
+
     const usageMap = new Map<string, { totalInputTokens: number; totalOutputTokens: number; interactionCount: number }>();
 
     allMessages.forEach(msg => {
@@ -693,7 +776,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
 
     return reportData.sort((a, b) => b.totalTokens - a.totalTokens);
-  }, []);
+  }, [user]);
 
   const chatPlaceholder = useMemo(() => sourcesForActiveGroup.filter(s => s.selected).length > 0
       ? `Perguntar sobre as ${sourcesForActiveGroup.filter(s => s.selected).length} fontes selecionadas...`
@@ -716,15 +799,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   const value = useMemo(() => ({
-      conversations, groups, activeGroupId, activeConversationId, isSidebarOpen, chatMessages, isLoading, libraryItems, allKnowledgeSources, libraryItemsForActiveContext, activeGroup, sourcesForActiveGroup, chatPlaceholder, showModelSelect, activeConversationName, activeModel, isEvaluationPanelOpen, isLibraryPanelOpen, activeQuizData, theme,
-      setIsSidebarOpen, handleSetGroup, handleAddGroup, handleDeleteGroup, handleUpdateGroup, handleSetConversation, handleNewConversation, handleDeleteConversation, handleClearAllConversations, handleUrlAdd, handleFileAdd, handleRemoveSource, handleSaveToLibrary, handleDeleteLibraryItem, handleOpenLibraryItem, handleSendMessage, handleOptimizePrompt, handleGenerateMindMap, generateUsageReport, handleSetModel, handleMindMapLayoutChange, handleStartEvaluation, handleCloseEvaluation, setIsLibraryPanelOpen, setTheme,
-      handleToggleSourceSelection: (sourceId: string) => {
-        // Placeholder implementation
-        console.log("Toggling source selection for:", sourceId);
-      }
+      conversations, groups, activeGroupId, activeConversationId, isSidebarOpen, chatMessages, isLoading, libraryItems, libraryItemsForActiveContext, activeGroup, sourcesForActiveGroup, chatPlaceholder, showModelSelect, activeConversationName, activeModel, isEvaluationPanelOpen, isLibraryPanelOpen, activeQuizData, theme,
+      setIsSidebarOpen, handleSetGroup, handleAddGroup, handleDeleteGroup, handleUpdateGroup, handleSetConversation, handleNewConversation, handleDeleteConversation, handleClearAllConversations, handleUrlAdd, handleFileAdd, handleRemoveSource, handleToggleSourceSelection, handleSaveToLibrary, handleDeleteLibraryItem, handleOpenLibraryItem, handleSendMessage, handleOptimizePrompt, handleGenerateMindMap, generateUsageReport, handleSetModel, handleMindMapLayoutChange, handleStartEvaluation, handleCloseEvaluation, setIsLibraryPanelOpen, setTheme
   }), [
-      conversations, groups, activeGroupId, activeConversationId, isSidebarOpen, chatMessages, isLoading, libraryItems, allKnowledgeSources, libraryItemsForActiveContext, activeGroup, sourcesForActiveGroup, chatPlaceholder, showModelSelect, activeConversationName, activeModel, isEvaluationPanelOpen, isLibraryPanelOpen, activeQuizData, theme,
-      handleSetGroup, handleAddGroup, handleDeleteGroup, handleUpdateGroup, handleSetConversation, handleNewConversation, handleDeleteConversation, handleClearAllConversations, handleUrlAdd, handleFileAdd, handleRemoveSource, handleSaveToLibrary, handleDeleteLibraryItem, handleOpenLibraryItem, handleSendMessage, handleOptimizePrompt, handleGenerateMindMap, generateUsageReport, handleSetModel, handleMindMapLayoutChange, handleStartEvaluation, handleCloseEvaluation, setIsLibraryPanelOpen, setTheme
+      // Apenas variáveis de estado, não as funções de callback
+      conversations, groups, activeGroupId, activeConversationId, isSidebarOpen, chatMessages, isLoading, libraryItems, libraryItemsForActiveContext, activeGroup, sourcesForActiveGroup, chatPlaceholder, showModelSelect, activeConversationName, activeModel, isEvaluationPanelOpen, isLibraryPanelOpen, activeQuizData, theme, user
   ]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

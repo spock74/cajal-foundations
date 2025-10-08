@@ -3,7 +3,6 @@
  * @copyright 2025 - Todos os direitos reservados
  */
 
-import { db, type StoredSource } from './dbService';
 import { type KnowledgeSource } from '../types';
 // Para instalar o pdf.js, execute: npm install pdfjs-dist
 import * as pdfjsLib from 'pdfjs-dist';
