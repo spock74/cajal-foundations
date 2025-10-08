@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { ChatMessage, MessageSender, KnowledgeSource, OptimizedPrompt } from '../types'; 
+import { ChatMessage, MessageSender, KnowledgeSource } from '../types'; 
 import MessageItem from './MessageItem';
 import ThemeSwitcher from './ThemeSwitcher';
 import { Send, Menu, Sparkles } from 'lucide-react';
@@ -19,7 +19,7 @@ interface ChatInterfaceProps {
   isLoading: boolean;
   placeholderText?: string;
   onToggleSidebar?: () => void;
-  onToggleMindMap?: (messageId: string, text: string) => void;
+  onToggleMindMap?: (message: ChatMessage) => void;
   onMindMapLayoutChange?: (messageId: string, layout: { expandedNodeIds?: string[], nodePositions?: { [nodeId: string]: { x: number, y: number } } }) => void;
   onSaveToLibrary?: (message: ChatMessage) => void;
   theme: 'light' | 'dark';
