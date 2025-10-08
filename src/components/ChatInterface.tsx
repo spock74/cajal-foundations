@@ -100,10 +100,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           {messages.map((msg) => (
             <MessageItem 
               key={msg.id} 
+              firestoreDocId={msg.id} // Passa o ID do documento do Firestore
               message={msg} 
-              onSendMessage={onSendMessage} // Passando onSendMessage para o MessageItem
+              onSendMessage={onSendMessage}
               onToggleMindMap={onToggleMindMap} 
-              onMindMapLayoutChange={onMindMapLayoutChange} onSaveToLibrary={onSaveToLibrary} />
+              onMindMapLayoutChange={onMindMapLayoutChange} onSaveToLibrary={onSaveToLibrary}  />
           ))}
           <div ref={messagesEndRef} />
         </div>

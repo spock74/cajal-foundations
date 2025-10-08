@@ -63,7 +63,7 @@ interface AppContextActions {
   handleSendMessage: (query: string, sourceIds: string[], actualPrompt?: string) => Promise<void>;
   handleOptimizePrompt: (query: string, sourceIds: string[]) => Promise<void>;
   handleGenerateMindMap: (message: ChatMessage) => Promise<void>;
-  generateUsageReport: () => Promise<any[]>; // Retorna os dados para o painel
+  generateUsageReport: () => Promise<any[]>;
   handleSetModel: (modelName: string) => void;
   handleMindMapLayoutChange: (messageId: string, layout: { expandedNodeIds?: string[], nodePositions?: { [nodeId: string]: { x: number, y: number } } }) => void;
   handleStartEvaluation: (quizData: QuizData) => void;
@@ -643,22 +643,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [isLoading, user, activeGroupId, activeConversationId, activeModel, sourcesForActiveGroup, toast, handleSetConversation]);
 
-  const handleGenerateMindMap = useCallback(async (message: ChatMessage) => {
+  const handleGenerateMindMap = useCallback(async (message: ChatMessage, firestoreDocId?: string) => {
     if (!activeConversationId) return;
+    const messageIdToUpdate = firestoreDocId || message.id;
     const { dismiss } = toast({ title: "Gerando Mapa Mental..." });
 
     // Encontra a mensagem atual para verificar seu estado.
-    const currentMessage = chatMessages.find(msg => msg.id === message.id);
+    const currentMessage = chatMessages.find(msg => msg.id === messageIdToUpdate);
     const existingMindMap = currentMessage?.mindMap;
 
     // Se o mapa já foi gerado, apenas alterna a visibilidade.
     if (existingMindMap && existingMindMap.nodes.length > 0) {
       const updatedMindMap = { ...existingMindMap, isVisible: !existingMindMap.isVisible };
       // Atualiza o estado local para feedback imediato
-      setChatMessages(prev => prev.map(msg => msg.id === message.id ? { ...msg, mindMap: updatedMindMap } : msg));
+      setChatMessages(prev => prev.map(msg => msg.id === messageIdToUpdate ? { ...msg, mindMap: updatedMindMap } : msg));
       // Persiste a mudança no Firestore
       if (user && activeGroupId && activeConversationId) {
-        const messageDocRef = doc(firestore, 'users', user.uid, 'groups', activeGroupId, 'conversations', activeConversationId, 'messages', message.id);
+        const messageDocRef = doc(firestore, 'users', user.uid, 'groups', activeGroupId, 'conversations', activeConversationId, 'messages', messageIdToUpdate);
         await updateDoc(messageDocRef, { mindMap: updatedMindMap });
       }
       dismiss();
@@ -667,10 +668,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // Se não existe, procede com a geração.
     const updateMindMapState = async (update: Partial<ChatMessage>) => {
-      setChatMessages(prev => prev.map(msg => msg.id === message.id ? { ...msg, ...update } : msg));
+      setChatMessages(prev => prev.map(msg => msg.id === messageIdToUpdate ? { ...msg, ...update } : msg));
       // Persiste a mudança no Firestore
       if (user && activeGroupId && activeConversationId && update.mindMap) {
-        const messageDocRef = doc(firestore, 'users', user.uid, 'groups', activeGroupId, 'conversations', activeConversationId, 'messages', message.id);
+        const messageDocRef = doc(firestore, 'users', user.uid, 'groups', activeGroupId, 'conversations', activeConversationId, 'messages', messageIdToUpdate);
         await updateDoc(messageDocRef, { mindMap: update.mindMap });
       }
     };
@@ -687,8 +688,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         content: title, // O título do mapa vai para o conteúdo do item da biblioteca
         timestamp: new Date(),
         conversationId: activeConversationId,
-        groupId: activeGroupId!,
-        messageId: message.id,
+        groupId: activeGroupId,
+        messageId: messageIdToUpdate,
         sourceIds: currentMessage?.sourceIds || []
       };
       if (user) {
