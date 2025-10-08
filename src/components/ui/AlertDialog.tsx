@@ -5,7 +5,6 @@
 
 import React from 'react';
 import * as AlertDialogPrimitive from '@radix-ui/react-alert-dialog';
-import { cn } from '@/lib/utils'; // Supondo que você tenha um utilitário `cn` para classnames
 
 interface AlertDialogProps {
   open: boolean;

@@ -3,7 +3,7 @@
  * @copyright 2025 - Todos os direitos reservados
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { marked } from 'marked'; 
 import { markedHighlight } from "marked-highlight";
 import hljs from 'highlight.js';
@@ -22,8 +22,9 @@ marked.use(markedHighlight({
 
 interface MessageItemProps {
   message: ChatMessage;
+  firestoreDocId: string; // ID do documento no Firestore
   onSendMessage?: (query: string, sourceIds: string[], actualPrompt?: string) => void;
-  onToggleMindMap?: (messageId: string, text: string) => void;
+  onToggleMindMap?: (message: ChatMessage, firestoreDocId: string) => void;
   onMindMapLayoutChange?: (messageId: string, layout: { expandedNodeIds?: string[], nodePositions?: { [nodeId: string]: { x: number, y: number } } }) => void;
   onSaveToLibrary?: (message: ChatMessage) => void;
 }
@@ -90,12 +91,32 @@ const SuggestionTooltip: React.FC<{ suggestion: OptimizedPrompt; onClose: () => 
   </div>
 );
 
-const MessageItem: React.FC<MessageItemProps> = ({ message, onSendMessage, onToggleMindMap, onMindMapLayoutChange, onSaveToLibrary }) => {
+const MessageItem: React.FC<MessageItemProps> = ({ message, firestoreDocId, onSendMessage, onToggleMindMap, onMindMapLayoutChange, onSaveToLibrary }) => {
   const isUser = message.sender === MessageSender.USER;
   const isModel = message.sender === MessageSender.MODEL;
   const isSystem = message.sender === MessageSender.SYSTEM;
   const [isCopied, setIsCopied] = useState(false);
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
+
+  // CORREÇÃO: Chamar useMemo no nível superior do componente.
+  const mindMapComponent = useMemo(() => {
+    // A lógica condicional agora está *dentro* do useMemo.
+    if (message.mindMap?.isVisible && message.mindMap) {
+      return (
+        <MindMapWrapper
+          isLoading={message.mindMap.isLoading}
+          error={message.mindMap.error}
+          nodes={message.mindMap.nodes}
+          edges={message.mindMap.edges}
+          initialExpandedNodeIds={message.mindMap.expandedNodeIds} // Passa o estado inicial
+          initialNodePositions={message.mindMap.nodePositions} // Passa o estado inicial
+          onLayoutSave={(layout) => onMindMapLayoutChange && onMindMapLayoutChange(firestoreDocId, layout)} // Renomeado para clareza
+        />
+      );
+    }
+    // Retorna null se a condição não for atendida.
+    return null;
+  }, [firestoreDocId, message.mindMap, onMindMapLayoutChange]);
 
   const renderMessageContent = () => {
     if (isModel && !message.isLoading) {
@@ -226,7 +247,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onSendMessage, onTog
                 </button>
                 {onToggleMindMap && !message.mindMap?.isArchived && (
                   <button
-                    onClick={() => onToggleMindMap(message.id, message.text)}
+                    onClick={() => onToggleMindMap(message, firestoreDocId)}
                     className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-md transition-colors ${message.mindMap?.isVisible ? 'bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-300' : 'bg-transparent text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/5'}`}
                     title="Visualizar como um Mapa Mental"
                   >
@@ -246,17 +267,8 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onSendMessage, onTog
             </div>
           )}
         </div>
-        {message.mindMap?.isVisible && (
-          <MindMapWrapper
-            isLoading={message.mindMap.isLoading}
-            error={message.mindMap.error}
-            nodes={message.mindMap.nodes}
-            edges={message.mindMap.edges}
-            expandedNodeIds={message.mindMap.expandedNodeIds}
-            nodePositions={message.mindMap.nodePositions}
-            onLayoutChange={(layout) => onMindMapLayoutChange && onMindMapLayoutChange(message.id, layout)}
-          />
-        )}
+        {/* Renderiza o componente memoizado. */}
+        {mindMapComponent}
       </div>
     </div>
   );

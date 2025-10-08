@@ -11,7 +11,6 @@ import ReactFlow, {
   Handle,
   Position,
   ReactFlowProvider,
-  applyNodeChanges,
   NodeChange,
   useNodesState,
   useEdgesState,
@@ -25,9 +24,9 @@ interface MindMapDisplayProps {
   error: string | null;
   nodes: any[];
   edges: any[];
-  expandedNodeIds?: string[];
-  nodePositions?: { [nodeId: string]: { x: number; y: number } };
-  onLayoutChange: (layout: { expandedNodeIds?: string[], nodePositions?: { [nodeId: string]: { x: number, y: number } } }) => void;
+  initialExpandedNodeIds?: string[]; // Renomeado para clareza
+  initialNodePositions?: { [nodeId: string]: { x: number; y: number } }; // Renomeado para clareza
+  onLayoutSave: (layout: { expandedNodeIds?: string[], nodePositions?: { [nodeId: string]: { x: number, y: number } } }) => void; // Renomeado para clareza
 }
 
 const dagreGraph = new dagre.graphlib.Graph();
@@ -65,7 +64,7 @@ const getLayoutedElements = (nodes: any[], edges: any[], direction = 'LR') => {
 };
 
 // Nó customizado que inclui o botão para expandir/recolher.
-const CustomMindMapNode = React.memo(({ data }: { data: any }) => {
+const CustomMindMapNode = React.memo(({ id, data }: { id: string, data: any }) => {
   // Define uma cor baseada na profundidade do nó.
   const depthColors = [
     'bg-blue-500/10 dark:bg-blue-500/20 border-blue-500/30',
@@ -80,7 +79,7 @@ const CustomMindMapNode = React.memo(({ data }: { data: any }) => {
       <span className="text-xs font-medium text-gray-800 dark:text-gray-100" style={{ maxWidth: 180 }}>{data.label}</span>
       {data.hasChildren && (
         <button
-          onClick={data.onToggle}
+          onClick={() => data.handleToggleNode(id)}
           className="absolute right-[-10px] top-1/2 -translate-y-1/2 w-5 h-5 bg-gray-600 dark:bg-gray-300 text-white dark:text-black rounded-full flex items-center justify-center hover:scale-110 transition-transform"
           aria-label={data.isExpanded ? 'Recolher nó' : 'Expandir nó'}
         >
@@ -100,16 +99,30 @@ const MindMapDisplay: React.FC<MindMapDisplayProps> = ({
   error,
   nodes: rawNodes,
   edges: rawEdges,
-  expandedNodeIds = [],
-  nodePositions = {},
-  onLayoutChange,
+  initialExpandedNodeIds = [], // Prop inicial
+  initialNodePositions = {}, // Prop inicial
+  onLayoutSave,
 }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [isExpanded, setIsExpanded] = useState(false);
+  // O componente agora gerencia seu próprio estado de layout
+  const [expandedNodeIds, setExpandedNodeIds] = useState(initialExpandedNodeIds);
+  const [nodePositions] = useState(initialNodePositions);
   const { fitView } = useReactFlow();
   
-  // 1. Calcula a hierarquia (mapa de filhos) e encontra o nó raiz.
+  const handleToggleNode = useCallback((nodeId: string) => {
+    const newExpandedSet = new Set(expandedNodeIds);
+    if (newExpandedSet.has(nodeId)) {
+      newExpandedSet.delete(nodeId);
+    } else {
+      newExpandedSet.add(nodeId);
+    }
+    const newExpandedArray = Array.from(newExpandedSet);
+    setExpandedNodeIds(newExpandedArray); // Atualiza o estado local
+    onLayoutSave({ expandedNodeIds: newExpandedArray, nodePositions }); // Notifica o AppContext para salvar
+  }, [expandedNodeIds, nodePositions, onLayoutSave]); // Depende do estado local
+
   const { childrenMap, rootNode } = useMemo(() => {
     if (!rawNodes || rawNodes.length === 0) return { childrenMap: new Map(), rootNode: null };
     
@@ -123,7 +136,6 @@ const MindMapDisplay: React.FC<MindMapDisplayProps> = ({
     return { childrenMap, rootNode: root };
   }, [rawNodes, rawEdges]);
 
-  // Efeito para reajustar a visão ao redimensionar a janela.
   useEffect(() => {
     const handleResize = () => {
       fitView({ duration: 200 });
@@ -132,17 +144,6 @@ const MindMapDisplay: React.FC<MindMapDisplayProps> = ({
     return () => window.removeEventListener('resize', handleResize);
   }, [fitView]);
 
-  const handleToggleNode = useCallback((nodeId: string) => {
-    const newExpandedSet = new Set(expandedNodeIds);
-    if (newExpandedSet.has(nodeId)) {
-      newExpandedSet.delete(nodeId);
-    } else {
-      newExpandedSet.add(nodeId);
-    }
-    onLayoutChange({ expandedNodeIds: Array.from(newExpandedSet) });
-  }, [expandedNodeIds, onLayoutChange]);
-  
-  // 3. Efeito principal que calcula os nós e arestas visíveis e o layout.
   useEffect(() => {
     if (!rootNode) {
       setNodes([]);
@@ -150,7 +151,7 @@ const MindMapDisplay: React.FC<MindMapDisplayProps> = ({
       return;
     }
 
-    const expandedSet = new Set(expandedNodeIds);
+    const expandedSet = new Set(expandedNodeIds); // Usa o estado de layout local
 
     // Lógica para determinar quais nós são visíveis com base no estado de expansão.
     const visibleNodes: any[] = [];
@@ -178,31 +179,32 @@ const MindMapDisplay: React.FC<MindMapDisplayProps> = ({
     const visibleNodeIds = new Set(visibleNodes.map(n => n.id));
     const visibleEdges = rawEdges.filter(edge => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target));
 
-    const augmentedNodes = visibleNodes.map(node => {
-      // Correção: Garante que width e height existam antes do layout.
-      const estimatedHeight = 40 + Math.floor((node.label || '').length / 25) * 15;
-      return {
-        ...node,
-        type: 'mindMapNode',
-        width: 180, // Largura padrão
-        height: estimatedHeight, // Altura estimada
-        data: {
-          ...node.data,
-          label: node.label || node.data?.label,
-          isExpanded: expandedSet.has(node.id),
-          hasChildren: (childrenMap.get(node.id) || []).length > 0,
-          onToggle: () => handleToggleNode(node.id),
-          depth: node.depth,
-        }
-      };
+    const getAugmentedNodes = () => visibleNodes.map(node => {
+        const estimatedHeight = 40 + Math.floor((node.label || '').length / 25) * 15;
+        return {
+            ...node,
+            type: 'mindMapNode',
+            width: 180,
+            height: estimatedHeight,
+            data: {
+                ...node.data,
+                label: node.label || node.data?.label,
+                isExpanded: expandedSet.has(node.id),
+                hasChildren: (childrenMap.get(node.id) || []).length > 0,
+                handleToggleNode: handleToggleNode,
+                depth: node.depth,
+            }
+        };
     });
-    
+
+    const augmentedNodes = getAugmentedNodes();
+
     const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(augmentedNodes, visibleEdges);
     
     // Aplica posições salvas sobre as posições calculadas pelo layout.
     const finalNodes = layoutedNodes.map(node => ({
       ...node,
-      position: nodePositions[node.id] || node.position,
+      position: nodePositions[node.id] || node.position, // Usa o estado de layout local
     }));
     setNodes(finalNodes);
 
@@ -220,7 +222,7 @@ const MindMapDisplay: React.FC<MindMapDisplayProps> = ({
 
     setTimeout(() => fitView({ duration: 400 }), 50);
 
-  }, [rootNode, rawNodes, rawEdges, childrenMap, expandedNodeIds, fitView, setNodes, setEdges, nodePositions]);
+  }, [rootNode, rawNodes, rawEdges, childrenMap, expandedNodeIds, fitView, nodePositions, setNodes, setEdges, handleToggleNode]); // NOSONAR
 
   const handleNodesChange = useCallback((changes: NodeChange[]) => {
     onNodesChange(changes);
@@ -233,8 +235,8 @@ const MindMapDisplay: React.FC<MindMapDisplayProps> = ({
         hasPositionChanged = true;
       }
     });
-    if (hasPositionChanged) onLayoutChange({ nodePositions: newPositions });
-  }, [onNodesChange, nodePositions, onLayoutChange]);
+    if (hasPositionChanged) onLayoutSave({ nodePositions: newPositions, expandedNodeIds });
+  }, [onNodesChange, nodePositions, onLayoutSave, expandedNodeIds]);
 
   const containerClasses = isExpanded
     ? "fixed inset-0 z-50 bg-white/95 dark:bg-[#1E1E1E]/95 backdrop-blur-sm p-4 flex flex-col"

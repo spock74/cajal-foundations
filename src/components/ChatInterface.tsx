@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { ChatMessage, MessageSender, KnowledgeSource, OptimizedPrompt } from '../types'; 
+import { ChatMessage, MessageSender, KnowledgeSource } from '../types'; 
 import MessageItem from './MessageItem';
 import ThemeSwitcher from './ThemeSwitcher';
 import { Send, Menu, Sparkles } from 'lucide-react';
@@ -19,7 +19,7 @@ interface ChatInterfaceProps {
   isLoading: boolean;
   placeholderText?: string;
   onToggleSidebar?: () => void;
-  onToggleMindMap?: (messageId: string, text: string) => void;
+  onToggleMindMap?: (message: ChatMessage) => void;
   onMindMapLayoutChange?: (messageId: string, layout: { expandedNodeIds?: string[], nodePositions?: { [nodeId: string]: { x: number, y: number } } }) => void;
   onSaveToLibrary?: (message: ChatMessage) => void;
   theme: 'light' | 'dark';
@@ -100,10 +100,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           {messages.map((msg) => (
             <MessageItem 
               key={msg.id} 
+              firestoreDocId={msg.id} // Passa o ID do documento do Firestore
               message={msg} 
-              onSendMessage={onSendMessage} // Passando onSendMessage para o MessageItem
+              onSendMessage={onSendMessage}
               onToggleMindMap={onToggleMindMap} 
-              onMindMapLayoutChange={onMindMapLayoutChange} onSaveToLibrary={onSaveToLibrary} />
+              onMindMapLayoutChange={onMindMapLayoutChange} onSaveToLibrary={onSaveToLibrary}  />
           ))}
           <div ref={messagesEndRef} />
         </div>
