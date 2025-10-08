@@ -77,8 +77,8 @@ public async generateContentWithSources(prompt: string, sources: KnowledgeSource
       const result = await getSuggestionsFn({ sources, modelName });
       return result.data.suggestions || [];
     } catch (error) {
-      this.handleError(error, 'getInitialSuggestions');
-      return [];
+      // Lança o erro para que a UI possa tratá-lo (ex: exibir uma mensagem).
+      throw this.handleError(error, 'getInitialSuggestions');
     }
   }
 
@@ -120,8 +120,8 @@ public async generateContentWithSources(prompt: string, sources: KnowledgeSource
       }
       return title;
     } catch (error) {
-      console.error("Falha ao gerar título via Cloud Function, usando fallback:", error);
-      return "Nova Conversa";
+      // Lança o erro para que a UI possa tratá-lo. O fallback deve ser responsabilidade da UI.
+      throw this.handleError(error, 'generateTitleForConversation');
     }
   }
 
