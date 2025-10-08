@@ -6,7 +6,7 @@
 import { db, type StoredSource } from './dbService';
 import { type KnowledgeSource } from '../types';
 // Para instalar o pdf.js, execute: npm install pdfjs-dist
-import * as pdfjsLib from 'pdfjs-dist/build/pdf';
+import * as pdfjsLib from 'pdfjs-dist';
 
 // Configuração para o worker do pdf.js. O Vite irá lidar com isso.
 // Você pode precisar copiar o worker do node_modules para a sua pasta 'public'.
@@ -85,7 +85,7 @@ class SourceManagerService {
         for (let i = 1; i <= numPages; i++) {
           const page = await pdf.getPage(i);
           const textContent = await page.getTextContent();
-          textSnippets.push(textContent.items.map(item => ('str' in item ? item.str : '')).join(' '));
+          textSnippets.push(textContent.items.map((item: any) => ('str' in item ? item.str : '')).join(' '));
         }
         content = textSnippets.join('\n\n');
       } else { // text/plain, text/markdown

@@ -12,6 +12,7 @@ import ReactFlow, {
   Position,
   ReactFlowProvider,
   applyNodeChanges,
+  NodeChange,
   useNodesState,
   useEdgesState,
   useReactFlow,
@@ -162,7 +163,7 @@ const MindMapDisplay: React.FC<MindMapDisplayProps> = ({
 
       if (expandedSet.has(currentNode.id)) {
         const children = childrenMap.get(currentNode.id) || [];
-        children.forEach(childId => {
+        children.forEach((childId: string) => {
           if (!visited.has(childId)) {
             const childNode = rawNodes.find(n => n.id === childId);
             if (childNode) {
@@ -221,13 +222,13 @@ const MindMapDisplay: React.FC<MindMapDisplayProps> = ({
 
   }, [rootNode, rawNodes, rawEdges, childrenMap, expandedNodeIds, fitView, setNodes, setEdges, nodePositions]);
 
-  const handleNodesChange = useCallback((changes) => {
+  const handleNodesChange = useCallback((changes: NodeChange[]) => {
     onNodesChange(changes);
     
     const newPositions = { ...nodePositions };
     let hasPositionChanged = false;
-    changes.forEach(change => {
-      if (change.type === 'position' && change.dragging === false) {
+    changes.forEach((change: NodeChange) => {
+      if (change.type === 'position' && change.dragging === false && change.position) {
         newPositions[change.id] = { x: change.position.x, y: change.position.y };
         hasPositionChanged = true;
       }

@@ -22,7 +22,7 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
   sources, 
   onUrlAdd,
   onFileAdd,
-  onRemoveSource, 
+  onRemoveSource,
   onToggleSourceSelection,
   maxSources = 20,
 }) => {

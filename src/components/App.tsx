@@ -62,7 +62,7 @@ const App: React.FC = () => {
         {(isSidebarOpen || isLibraryPanelOpen) && <div className="fixed inset-0 bg-black/60 z-20 lg:hidden" onClick={() => { setIsSidebarOpen(false); setIsLibraryPanelOpen(false); }} aria-hidden="true" />}
         
         <div className="flex h-full w-full p-2 md:p-4 gap-2 md:gap-4">
-          <div className={`fixed top-0 left-0 h-full w-11/12 max-w-sm z-30 transform transition-transform ease-in-out duration-300 p-3 md:static md:p-0 md:w-1/4 xl:w-1/5 md:h-full md:max-w-xs md:translate-x-0 md:z-auto ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+          <div className={`fixed top-0 left-0 h-full w-11/12 max-w-sm z-30 transform transition-transform ease-in-out duration-300 p-3 md:static md:p-0 md:w-1/3 xl:w-1/4 md:h-full md:max-w-sm md:translate-x-0 md:z-auto ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
             <ConversationManager
               groups={groups}
               activeGroupId={activeGroupId}
@@ -106,7 +106,7 @@ const App: React.FC = () => {
             />
 
           </div>
-          <div className={`fixed top-0 right-0 h-full w-11/12 max-w-sm z-30 transform transition-transform ease-in-out duration-300 p-3 lg:static lg:p-0 lg:w-1/4 xl:w-1/5 lg:h-full lg:max-w-xs lg:translate-x-0 lg:z-auto ${isLibraryPanelOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+          <div className={`fixed top-0 right-0 h-full w-11/12 max-w-sm z-30 transform transition-transform ease-in-out duration-300 p-3 lg:static lg:p-0 lg:w-1/3 xl:w-1/4 lg:h-full lg:max-w-sm lg:translate-x-0 lg:z-auto ${isLibraryPanelOpen ? 'translate-x-0' : 'translate-x-full'}`}>
             <LibraryPanel 
               items={libraryItemsForActiveContext} 
               onDeleteItem={handleDeleteLibraryItem} 

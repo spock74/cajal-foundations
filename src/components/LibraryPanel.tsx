@@ -2,6 +2,7 @@
  * @author José E. Moraes
  * @copyright 2025 - Todos os direitos reservados
  */
+import { useAppContext } from '@/AppContext';
 
 import React, { useState } from 'react';import { FileText, Trash2, FileSearch, Settings, HelpCircle, Bot, Code, Share2, BrainCircuit, TrendingUp, X } from 'lucide-react';
 import { LibraryItem } from '../types';
@@ -28,10 +29,14 @@ const ActionButton: React.FC<{ icon: React.ReactNode; label: string; title: stri
 );
 
 const LibraryPanel: React.FC<LibraryPanelProps> = ({ items, onDeleteItem, onItemClick, onOpenReport, onStartEvaluation, onClose }) => {
+  const { activeGroupId } = useAppContext();
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredItems = items.filter(item => 
-    item.content.toLowerCase().includes(searchQuery.toLowerCase())
+  const itemsForActiveGroup = items.filter(item => item.groupId === activeGroupId);
+
+  const filteredItems = itemsForActiveGroup.filter(item => 
+    item.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (item.type === 'mindmap' && item.content.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (
@@ -69,7 +74,7 @@ const LibraryPanel: React.FC<LibraryPanelProps> = ({ items, onDeleteItem, onItem
       </div>
 
       <div className="flex-grow overflow-y-auto space-y-2 chat-container -mr-2 pr-2">
-        {items.length === 0 ? (
+        {itemsForActiveGroup.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 dark:text-gray-500">
             <FileText size={32} className="mb-2" />
             <p className="text-sm font-medium">Sua biblioteca está vazia.</p>

@@ -1,32 +1,52 @@
 /**
- * Import function triggers from their respective submodules:
- *
- * import {onCall} from "firebase-functions/v2/https";
- * import {onDocumentWritten} from "firebase-functions/v2/firestore";
- *
- * See a full list of supported triggers at https://firebase.google.com/docs/functions
+ * @author José E. Moraes
+ * @copyright 2025 - Todos os direitos reservados
  */
 
-import {setGlobalOptions} from "firebase-functions";
-import {onRequest} from "firebase-functions/https";
+import {setGlobalOptions} from "firebase-functions/v2";
+import {HttpsError} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
+import {getGenAIClient} from "./utils.js";
+import {createAuthenticatedFunction} from "./functionWrapper.js";
+import {optimizePrompt} from "./optimizePrompt.js";
+import {generateContent} from "./generateContent.js";
+import {getInitialSuggestions} from "./getInitialSuggestions.js";
+import {generateMindMap} from "./generateMindMap.js";
 
-// Start writing functions
-// https://firebase.google.com/docs/functions/typescript
+setGlobalOptions({maxInstances: 10});
 
-// For cost control, you can set the maximum number of containers that can be
-// running at the same time. This helps mitigate the impact of unexpected
-// traffic spikes by instead downgrading performance. This limit is a
-// per-function limit. You can override the limit for each function using the
-// `maxInstances` option in the function's options, e.g.
-// `onRequest({ maxInstances: 5 }, (req, res) => { ... })`.
-// NOTE: setGlobalOptions does not apply to functions using the v1 API. V1
-// functions should each use functions.runWith({ maxInstances: 10 }) instead.
-// In the v1 API, each function can only serve one request per container, so
-// this will be the maximum concurrent request count.
-setGlobalOptions({ maxInstances: 10 });
+export const generateTitle = createAuthenticatedFunction<{text: string}, Promise<{title: string}>>(async (request) => {
+  const firstMessage = request.data.text;
+  if (!firstMessage || typeof firstMessage !== "string") {
+    logger.error("A requisição não continha um texto válido.", {
+      data: request.data, // NOSONAR
+    });
+    throw new HttpsError("invalid-argument", "O payload da requisição é inválido.");
+  }
 
-// export const helloWorld = onRequest((request, response) => {
-//   logger.info("Hello logs!", {structuredData: true});
-//   response.send("Hello from Firebase!");
-// });
+  const prompt = `Gere um título curto e descritivo (máximo 5 palavras) para uma conversa que começa com: ` +
+    `"${firstMessage}". Responda apenas com o título.`;
+
+  try {
+    const genAI = getGenAIClient();
+    // CORREÇÃO: Acessar o método generateContent através da propriedade 'models'.
+    const result = await genAI.models.generateContent({
+      model: "gemini-2.5-flash-lite",
+      contents: [{role: "user", parts: [{text: prompt}]}],
+    });
+    const responseText = result.text;
+    if (!responseText) {
+      logger.error("A resposta da API do Gemini não continha texto.", {
+        result,
+      });
+      throw new HttpsError("internal", "A resposta da IA estava vazia.");
+    }
+    const title = responseText.trim().replace(/["*]/g, "");
+    return {title: title};
+  } catch (error) {
+    logger.error("Erro ao gerar título na Cloud Function:", error);
+    throw new HttpsError("internal", "Falha ao comunicar com a API do Gemini.");
+  }
+});
+
+export {optimizePrompt, generateContent, getInitialSuggestions, generateMindMap};

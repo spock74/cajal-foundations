@@ -3,21 +3,8 @@
  * @copyright 2025 - Todos os direitos reservados
  */
 
-import {
-  GoogleGenAI,
-  HarmCategory,
-  HarmBlockThreshold,
-  // CORREÇÃO: Removendo importações de tipos não públicos para o frontend.
-  type SafetySetting,
-  type Content,
-  type Tool,
-  type GenerateContentResponse,
-} from "@google/genai";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import type { UrlContextMetadataItem, KnowledgeSource, OptimizedPrompt } from '../types';
-
-// --- DEFINIÇÕES DE TIPO E CONSTANTES ---
-// CORREÇÃO: Lendo a API Key do ambiente Vite.
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 export interface GeminiResponse {
   text: string;
@@ -29,22 +16,9 @@ export interface GeminiResponse {
 // --- A CLASSE SINGLETON ---
 class GeminiService {
   private static instance: GeminiService;
-  private genAI: GoogleGenAI;
-  private safetySettings: SafetySetting[];
 
   private constructor() {
-    if (!API_KEY) {
-      throw new Error("Chave da API Gemini não configurada. Verifique VITE_GEMINI_API_KEY no seu arquivo .env.");
-    }
-    // CORREÇÃO: A instanciação correta espera um objeto de opções.
-    this.genAI = new GoogleGenAI({ apiKey: API_KEY });
-
-    this.safetySettings = [
-      { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-      { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-      { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-      { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-    ];
+    // O construtor agora está vazio, pois toda a lógica de IA foi movida para o backend.
   }
 
   public static getInstance(): GeminiService {
@@ -73,207 +47,105 @@ class GeminiService {
 // DENTRO DA CLASSE GeminiService
 
 public async generateContentWithSources(prompt: string, sources: KnowledgeSource[], modelName: string): Promise<GeminiResponse> {
-  // --- Bloco de construção do prompt (permanece o mesmo) ---
-  const urls = sources.filter((s) => s.type === "url").map(s => s.value);
-  
-  // Sugestão: Construção de contexto mais funcional e legível.
-  const contextText = sources
-    .filter((s): s is Extract<KnowledgeSource, { type: 'file' }> => s.type === 'file')
-    .map(source => `Fonte (Arquivo: ${source.name}):\n---\n${source.content}\n---\n\n`)
-    .join('');
-
-  const fullPrompt = `Com base no contexto das fontes fornecidas abaixo, responda: "${prompt}"\n\n--- CONTEXTO ---\n${contextText}`;
-  
-  // Sugestão: Usar tipos importados para maior segurança.
-  const contents: Content[] = [{ role: "user", parts: [{ text: fullPrompt }] }];
-  const tools: Tool[] = urls.length > 0 ? [{ googleSearch: {} }] : [];
-  // --- Fim do bloco de construção ---
-
   try {
-    // Sugestão: Tipar o resultado da chamada da API.
-    const result: GenerateContentResponse = await this.genAI.models.generateContent({
-      model: modelName,
-      contents: contents, // A variável 'contents' está definida aqui. (Corrige o erro 1)
-      config: {
-        tools: tools,
-        safetySettings: this.safetySettings,
-      },
+    const functions = getFunctions();
+    const generateContentFn = httpsCallable<
+      { prompt: string; sources: KnowledgeSource[]; modelName: string },
+      GeminiResponse
+    >(functions, 'generateContent');
+
+    const result = await generateContentFn({
+      prompt,
+      sources,
+      modelName,
     });
 
-    // CORREÇÃO FINAL E DEFINITIVA (Corrige o erro 2)
-    // O objeto 'result' é a própria resposta. Não há subpropriedade 'response'.
-    
-    if (!result) {
-      throw new Error("A API retornou uma resposta inválida ou vazia.");
-    }
-    
-    const text = result.text; // Acessa o getter .text diretamente do resultado.
-    const candidate = result.candidates?.[0];
-    const usageMetadata = result.usageMetadata ? {
-      promptTokenCount: result.usageMetadata.promptTokenCount ?? 0,
-      candidatesTokenCount: result.usageMetadata.candidatesTokenCount ?? 0,
-      totalTokenCount: result.usageMetadata.totalTokenCount ?? 0,
-    } : undefined;
-
-    let extractedUrlContextMetadata: UrlContextMetadataItem[] | undefined = undefined;
-    if (candidate?.urlContextMetadata?.urlMetadata) {
-      // Sugestão: Tipar o objeto 'meta' para maior clareza.
-      extractedUrlContextMetadata = candidate.urlContextMetadata.urlMetadata.map((meta: { retrievedUrl?: string, retrieved_url?: string, urlRetrievalStatus?: string, url_retrieval_status?: string }) => ({
-        retrievedUrl: meta.retrievedUrl || meta.retrieved_url,
-        urlRetrievalStatus: meta.urlRetrievalStatus || meta.url_retrieval_status,
-      }));
-    }
-
-    return { text, urlContextMetadata: extractedUrlContextMetadata, usageMetadata, modelName: modelName };
+    return result.data;
   } catch (error) {
-    // Sugestão: Usar o helper de erro centralizado.
     throw this.handleError(error, 'generateContentWithSources');
   }
 }
 
-  public async getInitialSuggestions(sources: KnowledgeSource[], modelName: string): Promise<string[]> {
-    const urls = sources.filter(s => s.type === 'url').map(s => s.value);
-    if (urls.length === 0) return [];
-    
-    const prompt = `Com base no conteúdo das URLs: ${urls.join('\n')}, gere 3 perguntas. Retorne APENAS um array de strings JSON.`;
-    
+  public async getInitialSuggestions(sources: KnowledgeSource[], modelName: string): Promise<string[]> {    
     try {
-      const result = await this.genAI.models.generateContent({
-        model: modelName,
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        config: {
-          safetySettings: this.safetySettings,
-          responseMimeType: "application/json",
-        }
-      });
-      
-      return JSON.parse(result.text);
+      const functions = getFunctions();
+      const getSuggestionsFn = httpsCallable<
+        { sources: KnowledgeSource[]; modelName: string },
+        { suggestions: string[] }
+      >(functions, 'getInitialSuggestions');
+
+      const result = await getSuggestionsFn({ sources, modelName });
+      return result.data.suggestions || [];
     } catch (error) {
       this.handleError(error, 'getInitialSuggestions');
       return [];
     }
   }
 
-  public async generateMindMapFromText(textToAnalyze: string, modelName: string): Promise<{ title: string, nodes: any[], edges: any[] }> {
-    const prompt = `Analise o texto: "${textToAnalyze}" e gere um mapa mental em JSON (nodes, edges)...`;
-
-    // Sugestão: Prompt mais detalhado para garantir um formato de saída consistente.
-    const structuredPrompt = `
-      Analise o texto a seguir e estruture as informações como um mapa mental.
-      Sua resposta DEVE ser um objeto JSON contendo três chaves: "title", "nodes" e "edges".
-      - "title": Uma string contendo um título curto e descritivo para o mapa mental (máximo 7 palavras).
-      - "nodes": Um array de objetos, onde cada objeto tem "id" (string), "label" (string), e "type" (string, ex: 'main', 'subtopic').
-      - "edges": Um array de objetos, onde cada objeto tem "id" (string), "source" (o 'id' de um nó), e "target" (o 'id' de outro nó).
-      Texto para análise:
-      ---
-      ${textToAnalyze}
-      ---
-    `;
+  public async generateMindMapFromText(textToAnalyze: string, modelName: string): Promise<{ title: string; nodes: any[]; edges: any[] }> {
     try {
-      const result = await this.genAI.models.generateContent({
-        model: modelName,
-        contents: [{ role: 'user', parts: [{ text: structuredPrompt }] }],
-        config: {
-          safetySettings: this.safetySettings,
-          responseMimeType: "application/json",
-        },
+      const functions = getFunctions();
+      const generateMindMapFn = httpsCallable<
+        { textToAnalyze: string; modelName: string },
+        { title: string; nodes: any[]; edges: any[] }
+      >(functions, 'generateMindMap');
+
+      const result = await generateMindMapFn({
+        textToAnalyze,
+        modelName,
       });
 
-      const parsed = JSON.parse(result.text);
-      if (!parsed.title || !parsed.nodes || !parsed.edges) throw new Error("JSON do mapa mental inválido ou incompleto.");
-      return { title: parsed.title, nodes: parsed.nodes, edges: parsed.edges };
+      const mindMapData = result.data;
+      if (!mindMapData.title || !mindMapData.nodes || !mindMapData.edges) {
+        throw new Error("Dados do mapa mental recebidos da Cloud Function são inválidos.");
+      }
+      return mindMapData;
     } catch (error) {
       throw this.handleError(error, 'generateMindMapFromText');
     }
   }
 
-  public async generateTitleForConversation(firstMessage: string, modelName: string): Promise<string> {
-    const prompt = `Gere um título curto e descritivo (máximo 5 palavras) para uma conversa que começa com a seguinte pergunta: "${firstMessage}". Responda apenas com o título.`;
+  public async generateTitleForConversation(firstMessage: string): Promise<string> {
     try {
-      const result = await this.genAI.models.generateContent({
-        model: modelName,
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        config: {
-          safetySettings: this.safetySettings,
-        },
-      });
-      // Limpa a resposta para garantir que seja apenas texto.
-      let title = result.text.trim().replace(/["*]/g, '');
-      if (title.length > 50) title = title.substring(0, 47) + '...';
+      const functions = getFunctions();
+      // Define a chamada para a Cloud Function 'generateTitle'
+      const generateTitleFn = httpsCallable<{ text: string }, { title: string }>(functions, 'generateTitle');
+
+      // Executa a função passando a primeira mensagem
+      const result = await generateTitleFn({ text: firstMessage });
+      
+      const title = result.data.title;
+      if (!title) {
+        throw new Error("A resposta da Cloud Function não continha um título.");
+      }
       return title;
     } catch (error) {
-      console.error("Falha ao gerar título, usando fallback:", error);
+      console.error("Falha ao gerar título via Cloud Function, usando fallback:", error);
       return "Nova Conversa";
     }
   }
 
   public async generateOptimizedPrompts(humanPrompt: string, sources: KnowledgeSource[], modelName: string): Promise<OptimizedPrompt[]> {
-    const sourcesContent = sources
-      .filter((s): s is Extract<KnowledgeSource, { type: 'file' }> => s.type === 'file' && !!s.content)
-      .map(source => `Fonte (Arquivo: ${source.name}):\n---\n${source.content}\n---\n\n`)
-      .join('');
-
-    const metaPromptTemplate = `# CONTEXTO E OBJETIVO
-Você é um assistente de pesquisa especialista em engenharia de prompt. Sua função é analisar um prompt inicial de um usuário e, com base em um conjunto de documentos científicos, gerar múltiplas opções de prompts refinados para que o usuário possa escolher a abordagem que melhor atende à sua necessidade.
-
-# FONTES DE DADOS
-Considere estritamente os textos abaixo como sua única fonte de conhecimento:
-{sources_content}
-
-# PROMPT ORIGINAL DO USUÁRIO
-Agora, analise o seguinte prompt do usuário:
-{human_prompt}
-
-# SUAS INSTRUÇÕES
-
-1.  **Pense Passo a Passo:** Primeiro, analise o \`{human_prompt}\` e identifique as possíveis intenções, ambiguidades ou direções que ele pode tomar, sempre em relação ao conteúdo disponível em \`{sources_content}\`.
-
-2.  **Identifique Aspectos Distintos:** Elabore até 5 "aspectos" ou interpretações diferentes para a solicitação do usuário, variando em foco analítico, intenção, formato, etc.
-
-3.  **Crie Prompts Otimizados:** Para cada aspecto identificado, componha um "prompt otimizado" que seja auto-contido e inclua persona, instrução clara e formato de saída.
-
-4.  **Crie um Título para a Pergunta (\`question_title\`):** Para cada aspecto, crie um título curto e direto (2 a 4 palavras) que resuma a natureza da resposta. Este título será usado como o texto de um botão na interface do chat, então ele deve ser claro e conciso. Pense nele como uma "etiqueta" para a opção. Bons exemplos: "Resumo Técnico", "Análise de Implicações", "Explicação Simplificada", "Comparativo de Modelos".
-
-5.  **Escreva Descrições Focadas na Ação e no Benefício (\`description\`):** Para cada aspecto, crie uma descrição que siga as seguintes regras:
-    * **Comece com Ação:** Inicie com um verbo de ação (Ex: "Receba", "Analise") ou descrevendo o resultado (Ex: "Um resumo técnico...").
-    * **Oculte a Mecânica:** NUNCA use as palavras "prompt", "opção", "alternativa", ou "escolha".
-    * **Foque no Benefício:** Em vez de nomear um público (Ex: "para especialistas"), descreva o interesse que a resposta satisfaz (Ex: "Ideal se você precisa dos detalhes técnicos...").
-
-6.  **Tratamento de Exceção:** Se o \`{human_prompt}\` for vago ou desconectado do \`{sources_content}\`, gere apenas uma opção de prompt com um título e descrição apropriados que sugiram um resumo geral.
-
-7.  **Formato de Saída:** Sua resposta final deve ser um objeto JSON válido, sem nenhum texto ou explicação adicional fora dele. A estrutura deve ser exatamente:
-{"optimized_prompts": [
-    {
-        "question_title": "...",
-        "description": "...",
-        "prompt": "..."
-    }
-]}`;
-
-    const metaPrompt = metaPromptTemplate
-      .replace('{sources_content}', sourcesContent || "Nenhuma fonte de arquivo fornecida.")
-      .replace('{human_prompt}', humanPrompt);
-
     try {
-      const result = await this.genAI.models.generateContent({
-        model: modelName,
-        contents: [{ role: 'user', parts: [{ text: metaPrompt }] }],
-        config: {
-          safetySettings: this.safetySettings,
-          responseMimeType: "application/json",
-        },
+      // 1. Obter uma referência para o serviço de Cloud Functions.
+      const functions = getFunctions();
+      // 2. Criar uma referência para a função 'optimizePrompt' que fizemos deploy.
+      const optimizePromptFn = httpsCallable<{ humanPrompt: string; sources: KnowledgeSource[]; modelName: string; }, { optimized_prompts: OptimizedPrompt[] }>(functions, 'optimizePrompt');
+
+      // 3. Chamar a função com os dados necessários.
+      const result = await optimizePromptFn({
+        humanPrompt,
+        sources,
+        modelName,
       });
 
-      // Limpa a resposta para extrair apenas o JSON, removendo blocos de código Markdown.
-      let jsonString = result.text;
-      const jsonMatch = jsonString.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        jsonString = jsonMatch[0];
+      // 4. A Cloud Function já retorna o objeto JSON no formato correto.
+      const data = result.data;
+      if (!data || !data.optimized_prompts) {
+        throw new Error("A resposta da Cloud Function não contém 'optimized_prompts'.");
       }
 
-      const parsed = JSON.parse(jsonString);
-      if (!parsed.optimized_prompts) throw new Error("A resposta da IA não contém 'optimized_prompts'.");
-      return parsed.optimized_prompts;
+      return data.optimized_prompts;
     } catch (error) {
       throw this.handleError(error, 'generateOptimizedPrompts');
     }
