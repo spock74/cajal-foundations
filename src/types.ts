@@ -3,6 +3,8 @@
  * @copyright 2025 - Todos os direitos reservados
  */
 
+import { Timestamp } from "firebase/firestore";
+
 export enum MessageSender {
   USER = 'user',
   MODEL = 'model',
@@ -105,7 +107,106 @@ export interface LibraryItem {
   messageId?: string;
 }
 
-// --- Tipos para a Funcionalidade de Avaliação ---
+// --- Tipos para a Modelagem de Dados Pedagógica ---
+
+/**
+ * Representa um usuário na plataforma, com um papel definido para RBAC.
+ */
+export interface User {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  role: 'teacher' | 'student';
+}
+
+/**
+ * Representa uma turma, agrupando alunos sob a tutela de um professor.
+ */
+export interface Turma {
+  id: string; // ID do documento no Firestore
+  name: string;
+  teacherId: string; // Ref: /users/{userId}
+  studentIds: string[]; // Array de UIDs dos alunos
+}
+
+/**
+ * Representa um módulo de estudo criado por um professor.
+ */
+export interface GrupoDeConhecimento {
+  id: string; // ID do documento no Firestore
+  name: string;
+  ownerId: string; // Ref: /users/{userId}
+  createdAt: Timestamp;
+  sources: {
+    fileName: string;
+    fileType: string;
+    uploadTimestamp: Timestamp;
+  }[];
+}
+
+/**
+ * Representa uma avaliação (prova, quiz) criada por um professor.
+ */
+export interface Avaliacao {
+  id: string; // ID do documento no Firestore
+  title: string;
+  status: 'draft' | 'published' | 'closed';
+  type: 'formative' | 'summative';
+  ownerId: string; // Ref: /users/{userId}
+  grupoId: string; // Ref: /gruposDeConhecimento/{grupoId}
+  turmaId: string; // Ref: /turmas/{turmaId}
+  createdAt: Timestamp;
+  publishedAt?: Timestamp;
+}
+
+/**
+ * Representa uma única questão dentro de uma Avaliacao.
+ */
+export interface ItemDeAvaliacao {
+  id: string; // ID do documento no Firestore
+  conceptId: string;
+  bloomLevel: string;
+  prompt: string;
+  options: {
+    id: string;
+    text: string;
+    isCorrect: boolean;
+    justification: string;
+  }[];
+  hint?: string;
+}
+
+/**
+ * Registra a tentativa de um aluno em uma avaliação.
+ */
+export interface Submissao {
+  id: string; // ID do documento no Firestore
+  avaliacaoId: string; // Ref: /avaliacoes/{avaliacaoId}
+  studentId: string; // Ref: /users/{userId}
+  turmaId: string; // Ref: /turmas/{turmaId}
+  submittedAt: Timestamp;
+  score: number;
+
+  // Dado denormalizado para eficiência de leitura
+  assessmentTitle: string;
+}
+
+/**
+ * Registra a resposta de um aluno a um único item.
+ */
+export interface Resposta {
+  id: string; // ID do documento no Firestore
+  itemId: string; // Ref: /avaliacoes/{id}/itens/{id}
+  selectedOptionId: string;
+  isCorrect: boolean;
+
+  // Dados denormalizados para eficiência de diagnóstico
+  conceptId: string;
+  bloomLevel: string;
+}
+
+// --- Tipos para a Funcionalidade de Avaliação (Legado/Quiz) ---
+// TODO: Unificar ou refatorar `QuizData` e `QuizQuestion` com os novos modelos `Assessment` e `AssessmentItem`.
 
 export interface AnswerOption {
   text: string;
