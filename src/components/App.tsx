@@ -14,6 +14,7 @@ import AuthPage from "./AuthPage";
 import { Toaster } from "@/components/ui/toaster";
 import { EvaluationPanel } from "@/components/EvaluationPanel";
 import UsageReportPanel, { ModelUsage } from "@/components/UsageReportPanel";
+import TeacherDashboard from "@/components/dashboard/TeacherDashboard";
 import { sampleQuizData } from "@/data/pedagogical_content/formative_quizzes/cardiologia_basica_qf_v1";
 
 const App: React.FC = () => {
@@ -33,6 +34,11 @@ const App: React.FC = () => {
   const [isReportPanelOpen, setIsReportPanelOpen] = useState(false);
   const [reportData, setReportData] = useState<ModelUsage[]>([]);
   const { user, loading: authLoading } = useAuth();
+  const [isTeacherDashboardVisible, setIsTeacherDashboardVisible] = useState(true);
+
+  // TODO: A lógica de `role` deve vir do perfil do usuário no Firestore,
+  // associado ao `useAuth` hook. Por enquanto, simulamos um professor.
+  const userRole = 'teacher'; // 'student' ou 'teacher'
 
   if (authLoading) {
     return (
@@ -89,22 +95,14 @@ const App: React.FC = () => {
           </div>
 
           <div className="w-full h-full p-0 md:flex-1">
-            <ChatInterface
-              messages={chatMessages}
-              activeSources={sourcesForActiveGroup}
-              conversationTitle={activeConversationName}
-              onSendMessage={handleSendMessage}
-              onOptimizePrompt={handleOptimizePrompt}
-              isLoading={isLoading}
-              placeholderText={chatPlaceholder}
-              onToggleSidebar={() => setIsSidebarOpen(true)}
-              onToggleMindMap={handleGenerateMindMap}
-              onMindMapLayoutChange={handleMindMapLayoutChange}
-              onSaveToLibrary={handleSaveToLibrary}
-              theme={theme}
-              setTheme={setTheme}
-            />
-
+            {/* Se for um professor e nenhuma conversa estiver ativa, mostra o Dashboard. Caso contrário, mostra o Chat. */}
+            {(userRole === 'teacher' && !activeConversationId && isTeacherDashboardVisible) ? (
+              <div className="h-full bg-white/50 dark:bg-gray-900/50 backdrop-blur-2xl rounded-2xl border border-black/5 dark:border-white/5 p-4 overflow-y-auto">
+                <TeacherDashboard onExit={() => setIsTeacherDashboardVisible(false)} />
+              </div>
+            ) : (
+              <ChatInterface messages={chatMessages} activeSources={sourcesForActiveGroup} conversationTitle={activeConversationName} onSendMessage={handleSendMessage} onOptimizePrompt={handleOptimizePrompt} isLoading={isLoading} placeholderText={chatPlaceholder} onToggleSidebar={() => setIsSidebarOpen(true)} onToggleMindMap={handleGenerateMindMap} onMindMapLayoutChange={handleMindMapLayoutChange} onSaveToLibrary={handleSaveToLibrary} theme={theme} setTheme={setTheme} />
+            )}
           </div>
           <div className={`fixed top-0 right-0 h-full w-11/12 max-w-sm z-30 transform transition-transform ease-in-out duration-300 p-3 lg:static lg:p-0 lg:w-1/3 xl:w-1/4 lg:h-full lg:max-w-sm lg:translate-x-0 lg:z-auto ${isLibraryPanelOpen ? 'translate-x-0' : 'translate-x-full'}`}>
             <LibraryPanel 
