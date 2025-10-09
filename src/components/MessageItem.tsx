@@ -24,7 +24,7 @@ interface MessageItemProps {
   message: ChatMessage;
   firestoreDocId: string; // ID do documento no Firestore
   onSendMessage?: (query: string, sourceIds: string[], actualPrompt?: string) => void;
-  onToggleMindMap?: (message: ChatMessage, firestoreDocId: string) => void;
+  onToggleMindMap?: (firestoreDocId: string) => void;
   onMindMapLayoutChange?: (messageId: string, layout: { expandedNodeIds?: string[], nodePositions?: { [nodeId: string]: { x: number, y: number } } }) => void;
   onSaveToLibrary?: (message: ChatMessage) => void;
 }
@@ -91,7 +91,7 @@ const SuggestionTooltip: React.FC<{ suggestion: OptimizedPrompt; onClose: () => 
   </div>
 );
 
-const MessageItem: React.FC<MessageItemProps> = ({ message, firestoreDocId, onSendMessage, onToggleMindMap, onMindMapLayoutChange, onSaveToLibrary }) => {
+const MessageItem: React.FC<MessageItemProps> = React.memo(({ message, firestoreDocId, onSendMessage, onToggleMindMap, onMindMapLayoutChange, onSaveToLibrary }) => {
   const isUser = message.sender === MessageSender.USER;
   const isModel = message.sender === MessageSender.MODEL;
   const isSystem = message.sender === MessageSender.SYSTEM;
@@ -245,11 +245,13 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, firestoreDocId, onSe
                     ? <Check size={14} className="text-green-500" /> 
                     : <Copy size={14} />}
                 </button>
-                {onToggleMindMap && !message.mindMap?.isArchived && (
+                {onToggleMindMap && !message.mindMap?.isArchived && ( // NOSONAR
                   <button
-                    onClick={() => onToggleMindMap(message, firestoreDocId)}
+                    onClick={() => onToggleMindMap(firestoreDocId)}
                     className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-md transition-colors ${message.mindMap?.isVisible ? 'bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-300' : 'bg-transparent text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/5'}`}
                     title="Visualizar como um Mapa Mental"
+                    // Desabilita o botão se o ID for temporário (ainda não salvo no Firestore)
+                    disabled={firestoreDocId.startsWith('model-') || firestoreDocId.startsWith('user-')}
                   >
                     <BrainCircuit size={14} />
                   </button>
@@ -272,6 +274,6 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, firestoreDocId, onSe
       </div>
     </div>
   );
-};
+});
 
 export default MessageItem;

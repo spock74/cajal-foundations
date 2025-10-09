@@ -4,12 +4,13 @@
  */
 
 import React from 'react';
-import { useAppContext } from '@/AppContext';
+import { useAppStore } from '@/stores/appStore';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
-  const { isSidebarOpen, setIsSidebarOpen } = useAppContext();
+  const isSidebarOpen = useAppStore(s => s.isSidebarOpen);
+  const setIsSidebarOpen = useAppStore(s => s.setIsSidebarOpen);
 
   return (
     <>

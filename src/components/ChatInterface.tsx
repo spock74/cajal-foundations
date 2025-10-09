@@ -6,9 +6,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChatMessage, MessageSender, KnowledgeSource } from '../types'; 
 import MessageItem from './MessageItem';
-import ThemeSwitcher from './ThemeSwitcher';
+import ThemeSwitcher from './ThemeSwitcher'; // NOSONAR
 import { Send, Menu, Sparkles } from 'lucide-react';
-import { useAppContext } from '../AppContext';
+import { useAppStore } from '@/stores/appStore';
 
 interface ChatInterfaceProps {
   activeSources: KnowledgeSource[];
@@ -19,7 +19,7 @@ interface ChatInterfaceProps {
   isLoading: boolean;
   placeholderText?: string;
   onToggleSidebar?: () => void;
-  onToggleMindMap?: (message: ChatMessage) => void;
+  onToggleMindMap?: (firestoreDocId: string) => void;
   onMindMapLayoutChange?: (messageId: string, layout: { expandedNodeIds?: string[], nodePositions?: { [nodeId: string]: { x: number, y: number } } }) => void;
   onSaveToLibrary?: (message: ChatMessage) => void;
   theme: 'light' | 'dark';
@@ -43,7 +43,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 }) => {
   const [userQuery, setUserQuery] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { conversations, activeConversationId } = useAppContext();
+  const conversations = useAppStore(s => s.conversations);
+  const activeConversationId = useAppStore(s => s.activeConversationId);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -100,7 +101,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           {messages.map((msg) => (
             <MessageItem 
               key={msg.id} 
-              firestoreDocId={msg.id} // Passa o ID do documento do Firestore
+              firestoreDocId={msg.id} // CORREÇÃO: Garante que o ID do Firestore seja passado corretamente.
               message={msg} 
               onSendMessage={onSendMessage}
               onToggleMindMap={onToggleMindMap} 

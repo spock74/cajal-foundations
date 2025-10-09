@@ -222,7 +222,7 @@ const MindMapDisplay: React.FC<MindMapDisplayProps> = ({
 
     setTimeout(() => fitView({ duration: 400 }), 50);
 
-  }, [rootNode, rawNodes, rawEdges, childrenMap, expandedNodeIds, fitView, nodePositions, setNodes, setEdges, handleToggleNode]); // NOSONAR
+  }, [rootNode, rawNodes, rawEdges, childrenMap, expandedNodeIds, fitView, nodePositions, setNodes, setEdges, handleToggleNode, onLayoutSave]);
 
   const handleNodesChange = useCallback((changes: NodeChange[]) => {
     onNodesChange(changes);
