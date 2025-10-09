@@ -3,9 +3,11 @@
  * @copyright 2025 - Todos os direitos reservados
  */
 
-import React, { useState } from 'react';import { FileText, Trash2, FileSearch, Settings, HelpCircle, Bot, Code, Share2, BrainCircuit, TrendingUp, X } from 'lucide-react';
+import React, { useState } from 'react';
+import { FileText, Trash2, FileSearch, Settings, HelpCircle, Bot, Code, Share2, BrainCircuit, TrendingUp, X } from 'lucide-react';
 import { LibraryItem } from '../types';
 import { useAppStore } from '@/stores/appStore';
+import MessageInfoTrigger from './MessageInfoTrigger';
 
 interface LibraryPanelProps {
   items: LibraryItem[];
@@ -38,6 +40,11 @@ const LibraryPanel: React.FC<LibraryPanelProps> = ({ items, onDeleteItem, onItem
     item.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (item.type === 'mindmap' && item.content.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+
+  const formatDate = (date: Date) => {
+    if (!date || !(date instanceof Date)) return '';
+    return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(date);
+  };
 
   return (
     // Efeito de vidro fosco para o painel
@@ -73,49 +80,58 @@ const LibraryPanel: React.FC<LibraryPanelProps> = ({ items, onDeleteItem, onItem
         <ActionButton icon={<HelpCircle size={20} />} label="Ajuda" title="Ajuda sobre a Biblioteca" />
       </div>
 
-      <div className="flex-grow overflow-y-auto space-y-2 chat-container -mr-2 pr-2">
-        {itemsForActiveGroup.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 dark:text-gray-500">
-            <FileText size={32} className="mb-2" />
-            <p className="text-sm font-medium">Sua biblioteca está vazia.</p>
-            <p className="text-xs">Salve respostas do chat para vê-las aqui.</p>
-          </div>
-        ) : filteredItems.length === 0 ? (
-           <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 dark:text-gray-500">
-            <FileSearch size={32} className="mb-2" />
-            <p className="text-sm font-medium">Nenhum resultado encontrado.</p>
-            <p className="text-xs">Tente uma busca diferente.</p>
-          </div>
-        ) : (
-          filteredItems.map(item => (
-            <div 
-              key={item.id} 
-              onClick={() => onItemClick && onItemClick(item)}
-              className="p-2.5 bg-gray-100 dark:bg-[#2C2C2C] border border-black/5 dark:border-white/10 rounded-lg group transition-colors hover:bg-gray-200 dark:hover:bg-white/5 cursor-pointer"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-start gap-2 min-w-0">
-                  {item.type === 'mindmap' ? (
-                    <BrainCircuit size={16} className="text-blue-500 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-                  ) : (
-                    <FileText size={16} className="text-gray-500 dark:text-[#A8ABB4] flex-shrink-0 mt-0.5" />
-                  )}
-                  <p className="text-xs text-gray-700 dark:text-gray-300 line-clamp-3">
-                    {item.content}
-                  </p>
-                </div>
-                <button
-                  onClick={() => item.id && onDeleteItem(item.id)}
-                  title="Excluir item da biblioteca"
-                  className="p-1 text-gray-500 dark:text-[#A8ABB4] hover:text-red-500 dark:hover:text-[#f87171] rounded-md hover:bg-red-100/50 dark:hover:bg-[rgba(255,0,0,0.1)] transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
-                  aria-label="Excluir item"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
+      <div className="flex-grow relative min-h-0"> {/* Novo container relativo */}
+        <div className="absolute inset-0 overflow-y-auto space-y-2 chat-container -mr-2 pr-2">
+          {itemsForActiveGroup.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 dark:text-gray-500">
+              <FileText size={32} className="mb-2" />
+              <p className="text-sm font-medium">Sua biblioteca está vazia.</p>
+              <p className="text-xs">Salve respostas do chat para vê-las aqui.</p>
             </div>
-          ))
-        )}
+          ) : filteredItems.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 dark:text-gray-500">
+              <FileSearch size={32} className="mb-2" />
+              <p className="text-sm font-medium">Nenhum resultado encontrado.</p>
+              <p className="text-xs">Tente uma busca diferente.</p>
+            </div>
+          ) : (
+            filteredItems.map(item => {
+              const isGenerated = !!item.generatedFrom;
+              const bubbleClasses = `relative p-3 rounded-lg shadow w-full text-xs md:text-sm cursor-pointer group transition-colors hover:bg-opacity-80 ${isGenerated ? "bg-emerald-950 text-white" : "bg-gray-100 dark:bg-[#2C2C2C] text-gray-700 dark:text-gray-300"}`;
+
+              return (
+                <div key={item.id} onClick={() => onItemClick && onItemClick(item)} className={bubbleClasses}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      {isGenerated ? (
+                        <>
+                          <p className="text-sm font-semibold text-white dark:text-gray-100">{item.generatedFrom?.question_title}</p>
+                          <p className="text-xs text-white/80 dark:text-gray-300/80 mt-1">{item.generatedFrom?.description}</p>
+                        </>
+                      ) : (
+                        <p className="line-clamp-4">{item.content}</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); item.id && onDeleteItem(item.id); }}
+                      title="Excluir item da biblioteca"
+                      className="absolute top-2 right-2 p-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400 rounded-md hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100"
+                      aria-label="Excluir item"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between">
+                    <span className="text-xs opacity-60">{formatDate(item.timestamp)}</span>
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <MessageInfoTrigger item={item} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
       </div>
     </div>
   );

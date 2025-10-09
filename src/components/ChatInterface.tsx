@@ -22,6 +22,7 @@ interface ChatInterfaceProps {
   onToggleMindMap?: (firestoreDocId: string) => void;
   onMindMapLayoutChange?: (messageId: string, layout: { expandedNodeIds?: string[], nodePositions?: { [nodeId: string]: { x: number, y: number } } }) => void;
   onSaveToLibrary?: (message: ChatMessage) => void;
+  onDeleteMessage?: (messageId: string, messageText: string) => void;
   theme: 'light' | 'dark';
   setTheme: (theme: 'light' | 'dark') => void;
   showAiAvatar: boolean;
@@ -39,6 +40,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   onToggleMindMap,
   onMindMapLayoutChange,
   onSaveToLibrary,
+  onDeleteMessage,
   theme,
   setTheme,
   showAiAvatar
@@ -109,6 +111,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               onToggleMindMap={onToggleMindMap}
               onMindMapLayoutChange={onMindMapLayoutChange} 
               onSaveToLibrary={onSaveToLibrary}
+              onDeleteMessage={onDeleteMessage}
               showAiAvatar={showAiAvatar} />
           ))}
           <div ref={messagesEndRef} />

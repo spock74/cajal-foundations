@@ -30,6 +30,7 @@ interface MessageItemProps {
   onToggleMindMap?: (firestoreDocId: string) => void;
   onMindMapLayoutChange?: (messageId: string, layout: { expandedNodeIds?: string[], nodePositions?: { [nodeId: string]: { x: number, y: number } } }) => void;
   onSaveToLibrary?: (message: ChatMessage) => void;
+  onDeleteMessage?: (messageId: string, messageText: string) => void;
   showAiAvatar: boolean;
 }
 
@@ -86,7 +87,7 @@ const getStatusText = (status: string | undefined): string => {
   }
 };
 
-const MessageItem: React.FC<MessageItemProps> = React.memo(({ message, firestoreDocId, onSendMessage, onToggleMindMap, onMindMapLayoutChange, onSaveToLibrary, showAiAvatar }) => {
+const MessageItem: React.FC<MessageItemProps> = React.memo(({ message, firestoreDocId, onSendMessage, onToggleMindMap, onMindMapLayoutChange, onSaveToLibrary, onDeleteMessage, showAiAvatar }) => {
   const isUser = message.sender === MessageSender.USER;
   const isModel = message.sender === MessageSender.MODEL;
   const isSystem = message.sender === MessageSender.SYSTEM;
@@ -131,9 +132,7 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({ message, firestore
 
   if (isUser) {
     // Se for uma mensagem gerada por sugestão, usa o fundo verde, senão, o azul padrão.
-    bubbleClasses += message.generatedFrom 
-      ? "bg-[#132f10] text-white rounded-bl-none" 
-      : "bg-blue-600 text-white rounded-bl-none";
+    bubbleClasses += "bg-indigo-600 text-white rounded-bl-none";
   } else if (isModel) {
     bubbleClasses += `bg-white/80 dark:bg-gray-800/50 border border-black/5 dark:border-white/10 rounded-bl-none`;
   } else { // System message
@@ -158,7 +157,7 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({ message, firestore
           {(isModel && !message.isLoading && message.text) && (
             <div className="mt-2.5 pt-2.5 border-t border-black/5 dark:border-white/10 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <MessageInfoTrigger message={message} />
+                <MessageInfoTrigger item={message} />
                 {message.urlContext && message.urlContext.length > 0 && (
                   <div>
                     <h4 className="text-xs font-semibold text-gray-500 dark:text-[#A8ABB4] mb-1">URLs de Contexto Recuperadas:</h4>
@@ -191,6 +190,7 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({ message, firestore
                 firestoreDocId={firestoreDocId}
                 onToggleMindMap={onToggleMindMap}
                 onSaveToLibrary={onSaveToLibrary}
+                onDelete={onDeleteMessage}
               />
             </div>
           )}

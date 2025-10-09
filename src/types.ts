@@ -107,6 +107,8 @@ export interface LibraryItem {
   sourceIds: string[];
   timestamp: Date;
   messageId?: string;
+  generatedFrom?: OptimizedPrompt;
+  usageMetadata?: UsageMetadata;
 }
 
 // --- Tipos para a Modelagem de Dados Pedagógica ---

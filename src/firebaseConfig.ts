@@ -4,10 +4,10 @@
  */
 
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
-import { getFunctions } from "firebase/functions";
+import { getAuth, connectAuthEmulator } from "firebase/auth";
+import { getFirestore, enableIndexedDbPersistence, connectFirestoreEmulator } from "firebase/firestore";
+import { getStorage, connectStorageEmulator } from "firebase/storage";
+import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
 
 // Carrega as variáveis de ambiente de forma segura a partir do seu arquivo .env.local
 const firebaseConfig = {
@@ -39,6 +39,17 @@ enableIndexedDbPersistence(firestore).catch((err) => {
     console.error("Este navegador não suporta persistência offline do Firestore.");
   }
 });
+
+// Conecta-se aos emuladores do Firebase se estiver em ambiente de desenvolvimento.
+// Isso é crucial para que o app funcione corretamente no Cloud Workstations.
+if (import.meta.env.DEV) {
+  console.log("Ambiente de desenvolvimento detectado. Conectando aos emuladores do Firebase...");
+  // As portas devem corresponder às do seu firebase.json
+  connectAuthEmulator(auth, "127.0.0.1", 9099);
+  connectFirestoreEmulator(firestore, "127.0.0.1", 8080);
+  connectFunctionsEmulator(functions, "127.0.0.1", 5001);
+  connectStorageEmulator(storage, "127.0.0.1", 9199);
+}
 
 // Exporta os serviços que serão utilizados na aplicação
 export { auth, firestore, storage, functions };

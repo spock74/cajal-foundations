@@ -5,16 +5,17 @@
 
 import React, { useState } from 'react';
 import { ChatMessage } from '../types';
-import { BrainCircuit, Bookmark, Copy, Check } from 'lucide-react';
+import { BrainCircuit, Bookmark, Copy, Check, Trash2 } from 'lucide-react';
 
 interface MessageActionsProps {
   message: ChatMessage;
   firestoreDocId: string;
   onToggleMindMap?: (firestoreDocId: string) => void;
   onSaveToLibrary?: (message: ChatMessage) => void;
+  onDelete?: (firestoreDocId: string, messageText: string) => void;
 }
 
-const MessageActions: React.FC<MessageActionsProps> = ({ message, firestoreDocId, onToggleMindMap, onSaveToLibrary }) => {
+const MessageActions: React.FC<MessageActionsProps> = ({ message, firestoreDocId, onToggleMindMap, onSaveToLibrary, onDelete }) => {
   const [isCopied, setIsCopied] = useState(false);
 
   const handleCopy = () => {
@@ -59,6 +60,15 @@ const MessageActions: React.FC<MessageActionsProps> = ({ message, firestoreDocId
           title="Salvar na Biblioteca"
         >
           <Bookmark size={14} />
+        </button>
+      )}
+      {onDelete && (
+        <button
+          onClick={() => onDelete(firestoreDocId, message.text)}
+          className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-md transition-colors bg-transparent text-gray-500 dark:text-gray-400 hover:bg-red-500/10 hover:text-red-500 dark:hover:bg-red-500/10"
+          title="Apagar mensagem"
+        >
+          <Trash2 size={14} />
         </button>
       )}
     </div>

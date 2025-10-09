@@ -90,10 +90,15 @@ export const generateContent = createAuthenticatedFunction<GenerateContentData, 
 
     // Mapeia a resposta da API para a nossa interface GeminiResponse.
     const urlMetadata = result.candidates?.[0]?.urlContextMetadata?.urlMetadata;
-    const mappedUrlContext = urlMetadata?.map((meta: UrlMetadata) => ({
-      retrievedUrl: meta.retrievedUrl,
-      urlRetrievalStatus: meta.urlRetrievalStatus,
-    }));
+    const mappedUrlContext = urlMetadata
+      ?.map((meta: UrlMetadata) => ({
+        retrievedUrl: meta.retrievedUrl,
+        urlRetrievalStatus: meta.urlRetrievalStatus,
+      }))
+      .filter(
+        (meta): meta is UrlContextMetadataItem =>
+          typeof meta.retrievedUrl === "string" && typeof meta.urlRetrievalStatus === "string"
+      );
 
     const usageMetadata = result.usageMetadata ? {
       promptTokenCount: result.usageMetadata.promptTokenCount ?? 0,
