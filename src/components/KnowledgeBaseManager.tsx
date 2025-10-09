@@ -37,8 +37,8 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
         setSuccessMessage(null);
       }, 4000);
       return () => clearTimeout(timer);
-    }
-  }, [successMessage]);
+    } // Adicionado setSuccessMessage para cumprir com as regras de dependências exaustivas.
+  }, [successMessage, setSuccessMessage]);
 
   const isValidUrl = (urlString: string): boolean => {
     try {

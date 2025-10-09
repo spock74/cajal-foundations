@@ -5,12 +5,13 @@
 
 import React from 'react';
 import { Menu } from 'lucide-react';
-import { useAppContext } from '@/AppContext';
+import { useAppStore } from '@/stores/appStore'; 
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { Button } from '@/components/ui/button';
 
 export const ChatHeader: React.FC = () => {
-  const { activeConversationName, setIsSidebarOpen } = useAppContext();
+  const activeConversationName = useAppStore(s => s.conversations.find(c => c.id === s.activeConversationId)?.name || "Nova Conversa");
+  const setIsSidebarOpen = useAppStore(s => s.setIsSidebarOpen);
 
   return (
     <header className="flex h-16 shrink-0 items-center justify-between border-b bg-background px-4">

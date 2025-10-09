@@ -2,10 +2,10 @@
  * @author José E. Moraes
  * @copyright 2025 - Todos os direitos reservados
  */
-import { useAppContext } from '@/AppContext';
 
 import React, { useState } from 'react';import { FileText, Trash2, FileSearch, Settings, HelpCircle, Bot, Code, Share2, BrainCircuit, TrendingUp, X } from 'lucide-react';
 import { LibraryItem } from '../types';
+import { useAppStore } from '@/stores/appStore';
 
 interface LibraryPanelProps {
   items: LibraryItem[];
@@ -29,7 +29,7 @@ const ActionButton: React.FC<{ icon: React.ReactNode; label: string; title: stri
 );
 
 const LibraryPanel: React.FC<LibraryPanelProps> = ({ items, onDeleteItem, onItemClick, onOpenReport, onStartEvaluation, onClose }) => {
-  const { activeGroupId } = useAppContext();
+  const activeGroupId = useAppStore(s => s.activeGroupId);
   const [searchQuery, setSearchQuery] = useState('');
 
   const itemsForActiveGroup = items.filter(item => item.groupId === activeGroupId);
