@@ -2,17 +2,9 @@
  * @author José E. Moraes
  * @copyright 2025 - Todos os direitos reservados
  */
-
 import React, { useState } from 'react';
 import { Conversation, KnowledgeSource, KnowledgeGroup } from '../types';
-import { Plus, Trash2, MessageSquare, X, Check, Pencil, LogOut } from 'lucide-react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Plus, Trash2, X, LogOut } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,12 +15,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button, buttonVariants } from '@/components/ui/button';
 import KnowledgeBaseManager from './KnowledgeBaseManager';
 import { useAuth } from '@/hooks/useAuth';
 import { modelOptions } from './models';
+import ConversationList from './ConversationList';
+import GroupManager from './GroupManager';
 
 interface ConversationManagerProps {
   // Grupos
@@ -83,10 +82,6 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
   showModelSelect,
 }) => {
   const { user, logOut } = useAuth();
-  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
-  const [newGroupName, setNewGroupName] = useState('');
-  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
-  const [editingGroupName, setEditingGroupName] = useState('');
   const [dialogState, setDialogState] = useState<{
     isOpen: boolean;
     title: string;
@@ -94,14 +89,6 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
     onConfirm: () => void;
     isDestructive?: boolean;
   } | null>(null);
-
-  const handleCreateGroup = () => {
-    if (newGroupName.trim()) {
-      onAddGroup(newGroupName.trim());
-      setNewGroupName('');
-      setIsCreatingGroup(false);
-    }
-  };
 
   const handleNewConversationClick = () => {
     const anySourceSelected = sourcesForActiveGroup.some(s => s.selected);
@@ -115,38 +102,6 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
       });
     } else {
       onNewConversation();
-    }
-  };
-
-  const handleStartEditing = () => {
-    if (activeGroupId) {
-      setEditingGroupId(activeGroupId);
-      setEditingGroupName(groups.find(g => g.id === activeGroupId)?.name || '');
-    }
-  };
-
-  const handleCancelEditing = () => {
-    setEditingGroupId(null);
-    setEditingGroupName('');
-  };
-
-  const handleUpdateGroupName = () => {
-    if (editingGroupId && editingGroupName.trim()) {
-      onUpdateGroup(editingGroupId, editingGroupName.trim());
-      handleCancelEditing();
-    }
-  };
-
-  const confirmGroupDeletion = () => {
-    const group = groups.find(g => g.id === activeGroupId);
-    if (group) {
-      setDialogState({
-        isOpen: true,
-        title: `Apagar o tópico "${group.name}"?`,
-        description: "Esta ação é irreversível e removerá o tópico, todas as suas conversas e fontes associadas.",
-        onConfirm: () => onDeleteGroup(group.id),
-        isDestructive: true,
-      });
     }
   };
 
@@ -196,67 +151,14 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
 
       {/* Conteúdo rolável */}
       <div className="flex-grow overflow-y-auto chat-container">
-        {/* Seletor de Grupos */}
-        <div className="p-3 border-b border-gray-200 dark:border-[rgba(255,255,255,0.05)]">
-          <div className="group flex justify-between items-center mb-1">
-            <label className="block text-sm font-medium text-gray-500 dark:text-[#A8ABB4]">
-              Tópico de Pesquisa
-            </label>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
-                <button onClick={confirmGroupDeletion} className="p-1 text-red-600 rounded-md hover:bg-red-500/10" title="Apagar Tópico"><Trash2 size={14}/></button>
-                <button onClick={handleStartEditing} className="p-1 text-blue-600 rounded-md hover:bg-blue-500/10" title="Editar Tópico"><Pencil size={14}/></button>
-              </div>
-              <div className="w-px h-4 bg-gray-300 dark:bg-white/20"></div>
-              <button onClick={() => setIsCreatingGroup(true)} className="text-xs text-blue-600 dark:text-[#79B8FF] hover:text-black dark:hover:text-white font-medium">NOVO</button>
-            </div>
-          </div>
-          <div>
-          {isCreatingGroup ? (
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={newGroupName}
-                onChange={(e) => setNewGroupName(e.target.value)}
-                placeholder="Nome do novo tópico..."
-                className="flex-grow h-8 py-1 px-2.5 border border-gray-300 dark:border-[rgba(255,255,255,0.1)] bg-gray-100 dark:bg-[#2C2C2C] text-gray-800 dark:text-[#E2E2E2] rounded-lg text-sm"
-                onKeyPress={(e) => e.key === 'Enter' && handleCreateGroup()}
-                autoFocus
-              />
-              <button onClick={handleCreateGroup} className="px-2.5 py-1 text-xs bg-gray-800 text-white rounded-md">Criar</button>
-              <button onClick={() => setIsCreatingGroup(false)} className="px-2.5 py-1 text-xs text-gray-600 rounded-md">X</button>
-            </div>
-          ) : editingGroupId ? (
-            <div className="flex items-center gap-2">
-              <Input
-                type="text"
-                value={editingGroupName}
-                onChange={(e) => setEditingGroupName(e.target.value)}
-                className="h-9 flex-grow"
-                onKeyPress={(e) => e.key === 'Enter' && handleUpdateGroupName()}
-                autoFocus
-              />
-              <Button onClick={handleUpdateGroupName} size="icon" className="h-9 w-9 flex-shrink-0 bg-green-600 hover:bg-green-700">
-                <Check size={16} />
-              </Button>
-              <Button onClick={handleCancelEditing} size="icon" variant="ghost" className="h-9 w-9 flex-shrink-0">
-                <X size={16} />
-              </Button>
-            </div>
-          ) : (
-            <Select value={activeGroupId || ''} onValueChange={onSetGroupId}>
-              <SelectTrigger className="w-full h-9 text-sm bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10">
-                <SelectValue placeholder="Selecione um tópico..." />
-              </SelectTrigger>
-              <SelectContent>
-                {groups.map(group => (
-                  <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          </div>
-        </div>
+        <GroupManager
+          groups={groups}
+          activeGroupId={activeGroupId}
+          onSetGroupId={onSetGroupId}
+          onAddGroup={onAddGroup}
+          onDeleteGroup={onDeleteGroup}
+          onUpdateGroup={onUpdateGroup}
+        />
 
         {/* Seletor de Modelo */}
         {showModelSelect && (
@@ -277,36 +179,12 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
           </div>
         )}
 
-        <div className="p-2">
-          <ul className="space-y-1">
-            {conversations.map(convo => (
-              <li key={convo.id} className="flex items-center justify-between group rounded-md transition-colors hover:bg-gray-100 dark:hover:bg-white/5">
-                <button
-                  onClick={() => onSetConversationId(convo.id)}
-                  className={cn(
-                    "flex-grow flex items-center gap-3 p-2 text-sm text-left transition-colors rounded-md",
-                    activeConversationId === convo.id
-                      ? 'bg-gray-800 text-white dark:bg-white/20 border border-green-500' // Borda verde quando ativo
-                      : 'text-gray-700 dark:text-gray-300'
-                  )}
-                >
-                  <MessageSquare size={16} className="flex-shrink-0" />
-                  <span className="flex-grow truncate" title={convo.name}>{convo.name}</span>
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    confirmDeletion('single', convo.id, convo.name);
-                  }}
-                  className="p-2 flex-shrink-0 opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-500 transition-opacity"
-                  title="Apagar conversa"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <ConversationList
+          conversations={conversations}
+          activeConversationId={activeConversationId}
+          onSetConversationId={onSetConversationId}
+          onConfirmDelete={(id, name) => confirmDeletion('single', id, name)}
+        />
 
         <div className="min-h-0">
           {activeGroupId ? (

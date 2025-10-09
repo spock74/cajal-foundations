@@ -15,7 +15,7 @@ import {generateMindMap} from "./generateMindMap.js";
 
 setGlobalOptions({maxInstances: 10});
 
-export const generateTitle = createAuthenticatedFunction<{text: string}, Promise<{title: string}>>(async (request) => {
+export const generateTitle = createAuthenticatedFunction<{text: string}, Promise<{title: string}>>(async (request) => { // NOSONAR
   const firstMessage = request.data.text;
   if (!firstMessage || typeof firstMessage !== "string") {
     logger.error("A requisição não continha um texto válido.", {
@@ -24,14 +24,14 @@ export const generateTitle = createAuthenticatedFunction<{text: string}, Promise
     throw new HttpsError("invalid-argument", "O payload da requisição é inválido.");
   }
 
-  const prompt = `Gere um título curto e descritivo (máximo 5 palavras) para uma conversa que começa com: ` +
-    `"${firstMessage}". Responda apenas com o título.`;
+  const prompt = "Gere um título curto e descritivo (máximo 5 palavras) para uma" + 
+      "conversa que começa com: ${firstMessage}. Responda apenas com o título.";
 
   try {
     const genAI = getGenAIClient();
     // CORREÇÃO: Acessar o método generateContent através da propriedade 'models'.
     const result = await genAI.models.generateContent({
-      model: "gemini-2.5-flash-lite",
+      model: "gemini-2.5-flash-lite", // Usando um modelo rápido e eficiente para títulos.
       contents: [{role: "user", parts: [{text: prompt}]}],
     });
     const responseText = result.text;

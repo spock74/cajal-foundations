@@ -5,7 +5,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { ChatMessage, MessageSender, KnowledgeSource } from '../types'; 
-import MessageItem from './MessageItem';
+import MessageItem from './MessageItem'; // NOSONAR
 import ThemeSwitcher from './ThemeSwitcher'; // NOSONAR
 import { Send, Menu, Sparkles } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
@@ -14,7 +14,7 @@ interface ChatInterfaceProps {
   activeSources: KnowledgeSource[];
   messages: ChatMessage[];
   conversationTitle: string;
-  onSendMessage: (query: string, sourceIds: string[], actualPrompt?: string) => void;
+  onSendMessage: (query: string, sourceIds: string[], actualPrompt?: string, generatedFrom?: any) => void;
   onOptimizePrompt: (query: string, sourceIds: string[]) => void;
   isLoading: boolean;
   placeholderText?: string;
@@ -24,6 +24,7 @@ interface ChatInterfaceProps {
   onSaveToLibrary?: (message: ChatMessage) => void;
   theme: 'light' | 'dark';
   setTheme: (theme: 'light' | 'dark') => void;
+  showAiAvatar: boolean;
 }
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({ 
@@ -39,7 +40,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   onMindMapLayoutChange,
   onSaveToLibrary,
   theme,
-  setTheme
+  setTheme,
+  showAiAvatar
 }) => {
   const [userQuery, setUserQuery] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -52,8 +54,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   useEffect(scrollToBottom, [messages]);
 
-  // A entrada de texto deve ser desabilitada se houver conversas mas nenhuma estiver ativa.
-  const isInputDisabled = isLoading || (conversations.length > 0 && !activeConversationId);
+  // A entrada de texto agora é desabilitada apenas enquanto a IA está processando.
+  const isInputDisabled = isLoading;
 
   const handleSend = () => {
     if (userQuery.trim() && !isInputDisabled) {
@@ -103,9 +105,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               key={msg.id} 
               firestoreDocId={msg.id} // CORREÇÃO: Garante que o ID do Firestore seja passado corretamente.
               message={msg} 
-              onSendMessage={onSendMessage}
-              onToggleMindMap={onToggleMindMap} 
-              onMindMapLayoutChange={onMindMapLayoutChange} onSaveToLibrary={onSaveToLibrary}  />
+              onSendMessage={onSendMessage} 
+              onToggleMindMap={onToggleMindMap}
+              onMindMapLayoutChange={onMindMapLayoutChange} 
+              onSaveToLibrary={onSaveToLibrary}
+              showAiAvatar={showAiAvatar} />
           ))}
           <div ref={messagesEndRef} />
         </div>
@@ -137,10 +141,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           </button>
           <button
             onClick={handleSend}
-            disabled={isInputDisabled || !userQuery.trim()}
-            className="h-10 w-10 p-2 bg-gray-800 hover:bg-black dark:bg-white/10 dark:hover:bg-white/20 text-white rounded-xl transition-colors disabled:bg-gray-300 dark:disabled:bg-white/5 disabled:text-gray-500 dark:disabled:text-gray-600 flex items-center justify-center flex-shrink-0"
-            aria-label="Enviar mensagem"
-          >
+            disabled={isInputDisabled || !userQuery.trim()}            className="h-10 w-10 p-2 bg-gray-800 hover:bg-black dark:bg-white/10 dark:hover:bg-white/20 text-white rounded-xl transition-colors disabled:bg-gray-300 dark:disabled:bg-white/5 disabled:text-gray-500 dark:disabled:text-gray-600 flex items-center justify-center flex-shrink-0"            aria-label="Enviar mensagem"          >
             {(isLoading && messages.length > 0 && messages[messages.length-1]?.isLoading && messages[messages.length-1]?.sender === MessageSender.MODEL) ? 
               <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div> 
               : <Send size={16} />

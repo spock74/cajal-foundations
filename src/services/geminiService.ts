@@ -4,7 +4,7 @@
  */
 
 import { getFunctions, httpsCallable } from "firebase/functions";
-import type { UrlContextMetadataItem, KnowledgeSource, OptimizedPrompt } from '../types';
+import type { UrlContextMetadataItem, KnowledgeSource, OptimizedPrompt, ChatMessage } from '../types';
 
 export interface GeminiResponse {
   text: string;
@@ -46,11 +46,11 @@ class GeminiService {
 
 // DENTRO DA CLASSE GeminiService
 
-public async generateContentWithSources(prompt: string, sources: KnowledgeSource[], modelName: string): Promise<GeminiResponse> {
+public async generateContentWithSources(prompt: string, sources: KnowledgeSource[], modelName: string, history: Pick<ChatMessage, 'sender' | 'text'>[]): Promise<GeminiResponse> {
   try {
     const functions = getFunctions();
     const generateContentFn = httpsCallable<
-      { prompt: string; sources: KnowledgeSource[]; modelName: string },
+      { prompt: string; sources: KnowledgeSource[]; modelName: string; history: Pick<ChatMessage, 'sender' | 'text'>[] },
       GeminiResponse
     >(functions, 'generateContent');
 
@@ -58,6 +58,7 @@ public async generateContentWithSources(prompt: string, sources: KnowledgeSource
       prompt,
       sources,
       modelName,
+      history,
     });
 
     return result.data;

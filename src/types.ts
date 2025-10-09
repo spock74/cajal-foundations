@@ -59,28 +59,30 @@ export interface ChatMessage {
   sourceIds?: string[];
   optimizedPrompts?: OptimizedPrompt[];
   model?: string;
+  generatedFrom?: OptimizedPrompt;
   usageMetadata?: UsageMetadata;
 }
 
 // Interface base para metadados comuns a todas as fontes de conhecimento.
 interface BaseSource {
-  id: string; // Será o hash SHA-256 do conteúdo.
+  id: string; // ID do documento gerado pelo Firestore
   name: string; // Nome do arquivo ou URL.
   groupId: string;
   timestamp: Date;
   userId: 'dev_user';
   selected: boolean;
+  status?: 'active' | 'deleted';
 }
 
 // Interface específica para fontes do tipo arquivo, com metadados adicionais.
-interface FileSource extends BaseSource {
+export interface FileSource extends BaseSource {
   fileType: string; // MIME Type.
   fileSize: number; // Tamanho em bytes.
   content: string; // Conteúdo textual extraído.
 }
 
 // Interface específica para fontes do tipo URL.
-interface UrlSource extends BaseSource {
+export interface UrlSource extends BaseSource {
   value: string; // A própria URL.
 }
 
