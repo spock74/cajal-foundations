@@ -36,7 +36,7 @@ const getLayoutedElements = (nodes: any[], edges: any[], direction = 'LR') => {
   dagreGraph.setGraph({
     rankdir: direction,
     ranksep: 100,
-    nodesep: 50, // Aumenta a separação vertical entre nós no mesmo nível
+    nodesep: 0, // Aumenta a separação vertical entre nós no mesmo nível
   });
 
   nodes.forEach((node) => {
@@ -112,6 +112,11 @@ const MindMapDisplay: React.FC<MindMapDisplayProps> = ({
   const { fitView } = useReactFlow();
   
   const handleToggleNode = useCallback((nodeId: string) => {
+    // Adicionando uma verificação de segurança para o caso de o estado não estar totalmente inicializado.
+    if (!expandedNodeIds) {
+      console.warn("Tentativa de alternar nó com expandedNodeIds indefinido.");
+      return;
+    }
     const newExpandedSet = new Set(expandedNodeIds);
     if (newExpandedSet.has(nodeId)) {
       newExpandedSet.delete(nodeId);
@@ -267,7 +272,7 @@ const MindMapDisplay: React.FC<MindMapDisplayProps> = ({
            <p className="text-sm text-center text-gray-600 dark:text-[#A8ABB4]">{error}</p>
         </div>
       )}
-      {!isLoading && !error && rawNodes.length > 0 && (
+      {!isLoading && !error && rawNodes && rawNodes.length > 0 && (
         <ReactFlow
           nodes={nodes}
           edges={edges}

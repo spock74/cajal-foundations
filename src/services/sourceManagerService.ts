@@ -3,7 +3,7 @@
  * @copyright 2025 - Todos os direitos reservados
  */
 
-import { type KnowledgeSource } from '../types';
+import { type FileSource, type UrlSource } from '../types';
 // Para instalar o pdf.js, execute: npm install pdfjs-dist
 import * as pdfjsLib from 'pdfjs-dist';
 
@@ -18,20 +18,6 @@ const APP_CONFIG = {
   ACCEPTED_KNOWLEDGE_FILE_TYPES: ['application/pdf', 'text/plain', 'text/markdown'],
 };
 const MAX_FILE_SIZE_BYTES = (APP_CONFIG.MAX_FILE_SIZE_MB > 80 ? 80 : APP_CONFIG.MAX_FILE_SIZE_MB) * 1024 * 1024;
-
-/**
- * Função de Hashing assíncrona usando a Web Crypto API nativa do navegador.
- * Gera um hash SHA-256 para um determinado conteúdo de texto.
- * @param text O conteúdo a ser hasheado.
- * @returns Uma string representando o hash em hexadecimal.
- */
-async function generateHash(text: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(text);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
 
 /**
  * Checks if a file is valid by verifying its MIME type or file extension.
@@ -64,7 +50,7 @@ class SourceManagerService {
    * @returns O objeto KnowledgeSource completo e persistido.
    * @throws Lança um erro se a validação falhar, a leitura falhar, ou o arquivo já existir no DB.
    */
-  public async addFileSource(file: File, groupId: string): Promise<KnowledgeSource> {
+  public async addFileSource(file: File, groupId: string): Promise<Omit<({ type: 'file' } & FileSource), 'id'>> {
     // 1. Validação
     if (!isFileValid(file)) {
       throw new Error(`Tipo de arquivo '${file.type || file.name.split('.').pop()}' não é suportado.`);
@@ -99,52 +85,44 @@ class SourceManagerService {
       throw new Error(`O arquivo "${file.name}" parece estar vazio ou não contém texto extraível.`);
     }
     
-    // 3. Hashing
-    const hashId = await generateHash(content);
-
-    // 4. Criação do Objeto de Metadados
-    const newSource: KnowledgeSource = {
-      type: 'file',
-      id: hashId,
+    // 3. Criação do Objeto de Metadados (sem o campo 'id')
+    const newSourceData = {
+      type: 'file' as const,
       name: file.name,
+      value: file.name, // Adiciona o campo 'value' que faltava
       groupId: groupId,
       timestamp: new Date(),
-      userId: 'dev_user',
+      userId: 'dev_user' as const,
       selected: true,
       fileType: file.type,
       fileSize: file.size,
       content: content,
     };
     
-    // 5. O salvamento no DB agora é responsabilidade do AppContext,
-    // que sabe se deve usar Firestore ou Dexie.
-    
-    // 6. Retornar para o App.tsx
-    return newSource;
+    // 4. Retornar os dados para o appStore salvar.
+    return newSourceData;
   }
 
   /**
    * Adiciona uma fonte de URL (funcionalidade futura).
    */
-  public async addUrlSource(url: string, groupId: string): Promise<KnowledgeSource> {
+  public async addUrlSource(url: string, groupId: string): Promise<Omit<({ type: 'url' } & UrlSource), 'id'>> {
     // TODO: Implementar a lógica de scraping da URL, possivelmente via Cloud Function.
     console.warn("A funcionalidade de adicionar URL precisa ser implementada com scraping de backend.");
     // Placeholder para manter a UI funcionando:
-    const content = `Conteúdo simulado para a URL: ${url}`;
-    const hashId = await generateHash(content);
     
-    const newSource: KnowledgeSource = {
-      type: 'url',
-      id: hashId,
+    const newSourceData = {
+      type: 'url' as const,
       name: url,
       value: url,
       groupId: groupId,
       timestamp: new Date(),
-      userId: 'dev_user',
-      selected: true
+      userId: 'dev_user' as const,
+      content: '', // Adiciona o campo 'content' que faltava
+      selected: true,
     };
     
-    return newSource;
+    return newSourceData;
   }
 }
 

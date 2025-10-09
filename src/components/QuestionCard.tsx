@@ -79,7 +79,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({ question, totalQuest
                 {option.text}
                 {isAnswered && (
                   <p className="text-sm mt-2 text-muted-foreground italic">
-                    <strong>Racional:</strong> {option.rationale}
+                    <strong>Raciocínio:</strong> {option.rationale}
                   </p>
                 )}
               </label>

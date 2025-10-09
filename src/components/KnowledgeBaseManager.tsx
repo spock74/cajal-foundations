@@ -40,6 +40,8 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
     } // Adicionado setSuccessMessage para cumprir com as regras de dependências exaustivas.
   }, [successMessage, setSuccessMessage]);
 
+  const visibleSources = sources.filter(s => s.status !== 'deleted');
+
   const isValidUrl = (urlString: string): boolean => {
     try {
       new URL(urlString);
@@ -56,7 +58,8 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
       setError('Formato de URL inválido.');
       return;
     }
-    if (sources.find(s => s.type === 'url' && s.value === currentUrlInput)) {
+    // Verifica se a URL já existe e está visível.
+    if (sources.find(s => s.type === 'url' && s.value === currentUrlInput && s.status !== 'deleted')) {
       setError('Esta URL já foi adicionada ao grupo atual.');
       return;
     }
@@ -96,27 +99,27 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
             placeholder="https://exemplo.com/artigo.pdf"
             className="h-9 pl-8"
             onKeyPress={(e) => e.key === 'Enter' && handleAddUrl()}
-            disabled={sources.length >= maxSources}
+            disabled={visibleSources.length >= maxSources}
           />
         </div>
-        <Button onClick={handleAddUrl} disabled={sources.length >= maxSources} size="icon" className="h-9 w-9 flex-shrink-0">
+        <Button onClick={handleAddUrl} disabled={visibleSources.length >= maxSources} size="icon" className="h-9 w-9 flex-shrink-0">
           <Plus size={16} />
         </Button>
         <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".pdf,.txt,.md,text/plain,text/markdown" className="hidden" aria-hidden="true" />
-        <Button onClick={handleUploadClick} disabled={sources.length >= maxSources} size="icon" variant="outline" className="h-9 w-9 flex-shrink-0">
+        <Button onClick={handleUploadClick} disabled={visibleSources.length >= maxSources} size="icon" variant="outline" className="h-9 w-9 flex-shrink-0">
           <Upload size={16} />
         </Button>
       </div>
       
       {successMessage && ( <div className="flex items-start gap-1.5 text-xs text-green-600 dark:text-green-400 mb-2 p-2 bg-green-500/10 dark:bg-green-500/10 rounded-md border border-green-500/20"><CheckCircle size={16} /><span>{successMessage}</span></div> )}
       {error && ( <div className="flex items-start gap-1.5 text-xs text-red-500 dark:text-[#f87171] mb-2 p-2 bg-red-500/10 dark:bg-[#f87171]/10 rounded-md border border-red-500/20"><AlertCircle size={16} /><span>{error}</span></div> )}
-      {sources.length >= maxSources && ( <div className="flex items-start gap-1.5 text-xs text-yellow-600 dark:text-yellow-400 mb-2 p-2 bg-yellow-500/10 rounded-md border border-yellow-500/20"><AlertCircle size={16} /><span>Máximo de {maxSources} fontes atingido.</span></div> )}
-      
+      {visibleSources.length >= maxSources && ( <div className="flex items-start gap-1.5 text-xs text-yellow-600 dark:text-yellow-400 mb-2 p-2 bg-yellow-500/10 rounded-md border border-yellow-500/20"><AlertCircle size={16} /><span>Máximo de {maxSources} fontes atingido.</span></div> )}
+
       <div className="flex-grow overflow-y-auto space-y-2 chat-container min-h-0">
-        {sources.length === 0 && (
+        {visibleSources.length === 0 && (
           <p className="text-gray-500 dark:text-[#777777] text-center py-3 text-sm">Adicione fontes a este tópico para começar.</p>
         )}
-        {sources.map((source) => (
+        {visibleSources.map((source) => (
           <div key={source.id} className="flex items-center justify-between p-2.5 bg-gray-100 dark:bg-[#2C2C2C] border border-gray-200 dark:border-[rgba(255,255,255,0.05)] rounded-lg">
             <div className="flex items-center gap-3 min-w-0">
                 <input

@@ -30,6 +30,7 @@ import {
   writeBatch,
   onSnapshot,
   collectionGroup,
+  where,
 } from 'firebase/firestore';
 import { User } from 'firebase/auth';
 
@@ -51,6 +52,7 @@ interface AppState {
   theme: 'light' | 'dark';
   user: User | null;
   showModelSelect: boolean;
+  showAiAvatar: boolean;
 
   // Actions
   initFirestoreListeners: (user: User) => () => void;
@@ -71,7 +73,7 @@ interface AppState {
   handleSaveToLibrary: (message: ChatMessage, user: User) => Promise<void>;
   handleDeleteLibraryItem: (id: string, user: User) => Promise<void>;
   handleOpenLibraryItem: (item: LibraryItem) => Promise<void>;
-  handleSendMessage: (query: string, sourceIds: string[], user: User, actualPrompt?: string) => Promise<{ success: boolean; error?: Error }>;
+  handleSendMessage: (query: string, sourceIds: string[], user: User, actualPrompt?: string, generatedFrom?: OptimizedPrompt) => Promise<{ success: boolean; error?: Error }>;
   handleOptimizePrompt: (query: string, sourceIds: string[], user: User) => Promise<{ success: boolean; error?: Error }>;
   handleGenerateMindMap: (firestoreDocId: string, user: User) => Promise<{ success: boolean; error?: Error }>;
   generateUsageReport: () => Promise<any[]>;
@@ -84,6 +86,7 @@ interface AppState {
 }
 
 const showModelSelect = import.meta.env.VITE_SHOW_MODEL_SELECT === 'true';
+const showAiAvatar = import.meta.env.VITE_SHOW_AI_AVATAR === 'true';
 
 // Centralized object to hold all active listener unsubscribe functions
 let listeners = {
@@ -116,6 +119,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   })(),
   showModelSelect,
+  showAiAvatar,
 
   // --- ACTIONS ---
 
@@ -233,7 +237,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (id && activeGroupId && user?.uid) {
       const messagesQuery = query(collection(firestore, 'users', user.uid, 'groups', activeGroupId, 'conversations', id, 'messages'), orderBy('timestamp', 'asc'));
       const unsubMessages = onSnapshot(messagesQuery, (snapshot) => {
-        const fetchedMessages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ChatMessage));
+        const fetchedMessages = snapshot.docs.map(doc => ({
+          id: doc.id, // Garante que o ID do documento seja incluído
+          ...doc.data()
+        } as ChatMessage));
         set({ chatMessages: fetchedMessages });
       });
       listeners.conversation = unsubMessages;
@@ -246,10 +253,21 @@ export const useAppStore = create<AppState>((set, get) => ({
     const convoDocRef = doc(firestore, 'users', user.uid, 'groups', activeGroupId, 'conversations', id);
     const messagesRef = collection(convoDocRef, 'messages');
     const messagesSnapshot = await getDocs(messagesRef);
+
+    // Lógica de exclusão em cascata para a biblioteca
+    const libraryItemsRef = collection(firestore, 'users', user.uid, 'libraryItems');
+    const libraryQuery = query(libraryItemsRef, where('conversationId', '==', id));
+    const librarySnapshot = await getDocs(libraryQuery);
+
     const batch = writeBatch(firestore);
+    // Deleta as mensagens
     messagesSnapshot.forEach(doc => batch.delete(doc.ref));
+    // Deleta os itens da biblioteca associados
+    librarySnapshot.forEach(doc => batch.delete(doc.ref));
+
     await batch.commit();
     await deleteDoc(convoDocRef);
+
     if (id === activeConversationId) {
       set({ activeConversationId: null, chatMessages: [] });
     }
@@ -272,13 +290,25 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // Source Management
   handleUrlAdd: async (url, user) => {
-    const { activeGroupId } = get();
+    const { activeGroupId, sourcesForActiveGroup } = get();
     if (!activeGroupId) return;
+
+    // Verifica se a fonte já existe e está marcada como 'deleted'.
+    const existingDeletedSource = sourcesForActiveGroup.find(s => s.type === 'url' && s.value === url && s.status === 'deleted');
+
+    if (existingDeletedSource) {
+      // Se existir, apenas reativa a fonte.
+      const sourceDocRef = doc(firestore, 'users', user.uid, 'groups', activeGroupId, 'sources', existingDeletedSource.id);
+      await updateDoc(sourceDocRef, { status: 'active' }); // Ou remover o campo 'status'
+      return;
+    }
+
     set({ isLoading: true });
     try {
       const newSource = await sourceManagerService.addUrlSource(url, activeGroupId);
+      const { id, ...sourceData } = newSource as any; // Remove o campo 'id' se ele existir
       const sourcesCollectionRef = collection(firestore, 'users', user.uid, 'groups', activeGroupId, 'sources');
-      await addDoc(sourcesCollectionRef, { ...newSource, timestamp: serverTimestamp() });
+      await addDoc(sourcesCollectionRef, { ...sourceData, status: 'active', selected: true, timestamp: serverTimestamp() });
     } finally {
       set({ isLoading: false });
     }
@@ -290,7 +320,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const newSource = await sourceManagerService.addFileSource(file, activeGroupId);
       const sourcesCollectionRef = collection(firestore, 'users', user.uid, 'groups', activeGroupId, 'sources');
-      await addDoc(sourcesCollectionRef, { ...newSource, timestamp: serverTimestamp() });
+      // The 'newSource' object from the service should not contain a client-generated 'id'.
+      await addDoc(sourcesCollectionRef, { ...newSource, status: 'active', selected: true, timestamp: serverTimestamp() });
     } finally {
       set({ isLoading: false });
     }
@@ -298,14 +329,23 @@ export const useAppStore = create<AppState>((set, get) => ({
   handleRemoveSource: async (sourceId, user) => {
     const { activeGroupId } = get();
     if (!activeGroupId) return;
+    // Em vez de deletar, marcamos a fonte como 'deleted' para manter a integridade referencial.
     const sourceDocRef = doc(firestore, 'users', user.uid, 'groups', activeGroupId, 'sources', sourceId);
-    await deleteDoc(sourceDocRef);
+    await updateDoc(sourceDocRef, { status: 'deleted' });
   },
   handleToggleSourceSelection: async (sourceId, user) => {
     const { activeGroupId, sourcesForActiveGroup } = get();
     if (!activeGroupId) return;
     const sourceToUpdate = sourcesForActiveGroup.find(s => s.id === sourceId);
     if (!sourceToUpdate) return;
+
+    // Atualização Otimista: Atualiza o estado local imediatamente para feedback instantâneo na UI.
+    set(state => ({
+      sourcesForActiveGroup: state.sourcesForActiveGroup.map(source =>
+        source.id === sourceId ? { ...source, selected: !source.selected } : source
+      ),
+    }));
+
     const sourceDocRef = doc(firestore, 'users', user.uid, 'groups', activeGroupId, 'sources', sourceId);
     await updateDoc(sourceDocRef, { selected: !sourceToUpdate.selected });
   },
@@ -333,7 +373,14 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     if (itemToDelete.type === 'mindmap' && itemToDelete.messageId) {
       const messageDocRef = doc(firestore, 'users', user.uid, 'groups', itemToDelete.groupId, 'conversations', itemToDelete.conversationId, 'messages', itemToDelete.messageId);
-      await updateDoc(messageDocRef, { 'mindMap.isArchived': false, 'mindMap.isVisible': false });
+      // Atualização otimista: remove o mapa mental do estado local imediatamente.
+      set(state => ({
+        chatMessages: state.chatMessages.map(msg => 
+          msg.id === itemToDelete.messageId ? { ...msg, mindMap: undefined } : msg
+        )
+      }));
+      // CORREÇÃO: Remove completamente o mapa mental da mensagem original, em vez de apenas alterar flags.
+      await updateDoc(messageDocRef, { mindMap: null });
     }
 
     const libraryItemDocRef = doc(firestore, 'users', user.uid, 'libraryItems', id);
@@ -349,16 +396,20 @@ export const useAppStore = create<AppState>((set, get) => ({
       handleSetConversation(item.conversationId);
     }
     if (item.type === 'mindmap' && item.messageId) {
-        set(state => ({
-            chatMessages: state.chatMessages.map(msg => 
-                msg.id === item.messageId ? { ...msg, mindMap: { ...msg.mindMap!, isVisible: true } } : msg
-            )
-        }));
+        const { user, chatMessages } = get();
+        const message = chatMessages.find(msg => msg.id === item.messageId);
+
+        // Só tenta exibir o mapa se ele realmente existir na mensagem.
+        if (user && message?.mindMap) {
+            const messageDocRef = doc(firestore, 'users', user.uid, 'groups', item.groupId, 'conversations', item.conversationId, 'messages', item.messageId);
+            // Atualiza o documento no Firestore; o onSnapshot cuidará da UI.
+            await updateDoc(messageDocRef, { 'mindMap.isVisible': true });
+        }
     }
   },
 
   // Chat Actions
-  handleSendMessage: async (query, sourceIds, user, actualPrompt): Promise<{ success: boolean; error?: Error }> => {
+  handleSendMessage: async (query, sourceIds, user, actualPrompt, generatedFrom): Promise<{ success: boolean; error?: Error }> => {
     const { activeGroupId, activeModel, sourcesForActiveGroup } = get();
     if (!query.trim() || !user || !activeGroupId) return { success: false, error: new Error("Invalid parameters for sending message.") };
     set({ isLoading: true });
@@ -373,17 +424,28 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
 
     const messagesRef = collection(firestore, 'users', user.uid, 'groups', activeGroupId, 'conversations', activeConversationId, 'messages');
-    const userMessage: ChatMessage = { id: `user-${Date.now()}`, conversationId: activeConversationId, text: query, sender: MessageSender.USER, timestamp: new Date(), sourceIds };
-    const modelPlaceholder: ChatMessage = { id: `model-${Date.now()}`, conversationId: activeConversationId, text: 'Processando...', sender: MessageSender.MODEL, timestamp: new Date(), isLoading: true, sourceIds };
+    const userMessageData = { conversationId: activeConversationId, text: query, sender: MessageSender.USER, timestamp: serverTimestamp(), sourceIds, generatedFrom };
     
-    set(state => ({ chatMessages: [...state.chatMessages, userMessage, modelPlaceholder] }));
-    
-    await addDoc(messagesRef, { ...userMessage, timestamp: serverTimestamp() });
-    const modelPlaceholderDocRef = await addDoc(messagesRef, { ...modelPlaceholder, timestamp: serverTimestamp() });
+    // 1. Add user message to Firestore and local state for immediate feedback
+    const userMessageDoc = await addDoc(messagesRef, userMessageData);    const finalUserMessage: ChatMessage = { ...userMessageData, id: userMessageDoc.id, timestamp: new Date() };
+
+    // 2. Create the model's placeholder document in Firestore to get its REAL ID first.
+    const placeholderData = { conversationId: activeConversationId, text: 'Processando...', sender: MessageSender.MODEL, timestamp: serverTimestamp(), isLoading: true, sourceIds };
+    const modelPlaceholderDocRef = await addDoc(messagesRef, placeholderData);
+
+    // 3. Add BOTH the user message and the placeholder to the local state in a single operation.
+    const finalModelPlaceholder: ChatMessage = { ...placeholderData, id: modelPlaceholderDocRef.id, timestamp: new Date() };
+    set(state => ({ chatMessages: [...state.chatMessages, finalUserMessage, finalModelPlaceholder] }));
 
     try {
+      // Prepara o histórico da conversa, excluindo a mensagem atual do usuário e o placeholder.
+      const conversationHistory = get().chatMessages
+        .filter(msg => msg.id !== finalUserMessage.id && msg.id !== finalModelPlaceholder.id)
+        .map(({ sender, text }) => ({ sender: sender === MessageSender.USER ? 'user' : 'model', text }));
+
       const selectedSources = sourcesForActiveGroup.filter(s => sourceIds.includes(s.id));
-      const response = await geminiService.generateContentWithSources(actualPrompt || query, selectedSources, activeModel);
+      const response = await geminiService.generateContentWithSources(actualPrompt || query, selectedSources, activeModel, conversationHistory);
+
       const finalMessage: Partial<ChatMessage> = { text: response.text, isLoading: false, model: response.modelName, usageMetadata: response.usageMetadata, urlContext: response.urlContextMetadata };
       await updateDoc(modelPlaceholderDocRef, { ...finalMessage, timestamp: serverTimestamp() });
       return { success: true };
@@ -437,6 +499,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // Mind Map
   handleGenerateMindMap: async (firestoreDocId, user): Promise<{ success: boolean; error?: Error }> => {
+    console.log(`[MindMap] Iniciando geração para o docId: ${firestoreDocId}`);
     const { activeConversationId, chatMessages, activeModel, activeGroupId } = get();
     if (!activeConversationId) return { success: false, error: new Error("No active conversation") };
 

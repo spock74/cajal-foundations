@@ -163,7 +163,7 @@ const App: React.FC = () => {
                 messages={store.chatMessages} 
                 activeSources={store.sourcesForActiveGroup} 
                 conversationTitle={activeConversationName} 
-                onSendMessage={(query, sourceIds, actualPrompt) => user && store.handleSendMessage(query, sourceIds, user as unknown as User, actualPrompt)} 
+                onSendMessage={(query, sourceIds, actualPrompt, generatedFrom) => user && store.handleSendMessage(query, sourceIds, user as unknown as User, actualPrompt, generatedFrom)} 
                 onOptimizePrompt={handleOptimizePrompt} 
                 isLoading={store.isLoading} 
                 placeholderText={chatPlaceholder} 
@@ -173,6 +173,7 @@ const App: React.FC = () => {
                 onSaveToLibrary={(message) => user && store.handleSaveToLibrary(message, user as unknown as User)} 
                 theme={store.theme} 
                 setTheme={store.setTheme} 
+                showAiAvatar={store.showAiAvatar}
               />
             )}
           </div>

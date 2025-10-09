@@ -3,13 +3,16 @@
  * @copyright 2025 - Todos os direitos reservados
  */
 
-import React, { useState, useMemo } from 'react';
+import React from 'react'; // NOSONAR
 import { marked } from 'marked'; 
 import { markedHighlight } from "marked-highlight";
 import hljs from 'highlight.js';
 import MindMapWrapper from './MindMapDisplay'; // NOSONAR
-import { ChatMessage, MessageSender, OptimizedPrompt } from '../types'; // NOSONAR
-import { BrainCircuit, Bookmark, Copy, Check, Wand2, HelpCircle, X } from 'lucide-react'; // NOSONAR
+import { ChatMessage, MessageSender } from '../types'; // NOSONAR
+import MessageActions from './MessageActions';
+import OptimizedPrompts from './OptimizedPrompts';
+import MessageInfoTrigger from './MessageInfoTrigger';
+
 
 // Configure marked to use highlight.js for syntax highlighting
 marked.use(markedHighlight({
@@ -21,12 +24,13 @@ marked.use(markedHighlight({
 }));
 
 interface MessageItemProps {
-  message: ChatMessage;
+  message: ChatMessage; // NOSONAR
   firestoreDocId: string; // ID do documento no Firestore
   onSendMessage?: (query: string, sourceIds: string[], actualPrompt?: string) => void;
   onToggleMindMap?: (firestoreDocId: string) => void;
   onMindMapLayoutChange?: (messageId: string, layout: { expandedNodeIds?: string[], nodePositions?: { [nodeId: string]: { x: number, y: number } } }) => void;
   onSaveToLibrary?: (message: ChatMessage) => void;
+  showAiAvatar: boolean;
 }
 
 const SenderAvatar: React.FC<{ sender: MessageSender }> = ({ sender }) => {
@@ -55,12 +59,19 @@ const SenderAvatar: React.FC<{ sender: MessageSender }> = ({ sender }) => {
   );
 };
 
-const SenderInfo: React.FC<{ sender: MessageSender }> = ({ sender }) => {
-  const name = sender === MessageSender.USER ? 'Você' : 'Assistente IA';
+const SenderInfo: React.FC<{ sender: MessageSender; showAiAvatar: boolean; }> = ({ sender, showAiAvatar }) => {
+  // Não renderiza nada para o usuário, para uma UI mais limpa.
+  if (sender === MessageSender.USER) {
+    return null;
+  }
+  // Se for a IA e a configuração for para não mostrar, não renderiza nada.
+  if (sender === MessageSender.MODEL && !showAiAvatar) {
+    return null;
+  }
+  // Para o modelo e sistema, renderiza apenas o avatar, sem o nome.
   return (
     <div className="flex items-center gap-2">
       <SenderAvatar sender={sender} />
-      <span className="text-xs md:text-sm font-semibold text-gray-800 dark:text-gray-300">{name}</span>
     </div>
   );
 };
@@ -75,50 +86,21 @@ const getStatusText = (status: string | undefined): string => {
   }
 };
 
-const SuggestionTooltip: React.FC<{ suggestion: OptimizedPrompt; onClose: () => void }> = ({ suggestion, onClose }) => (
-  <div className="absolute z-20 w-80 p-3 bg-gray-800 text-white rounded-lg shadow-lg right-0 top-full mt-2 border border-white/10">
-    <button onClick={onClose} className="absolute top-1.5 right-1.5 text-gray-400 hover:text-white p-1 rounded-full hover:bg-white/10">
-      <X size={16} />
-    </button>
-    <h4 className="font-bold text-sm mb-2 pr-6">{suggestion.question_title}</h4>
-    <p className="text-xs mb-2 opacity-80">{suggestion.description}</p>
-    <div className="mt-2 pt-2 border-t border-white/10">
-      <p className="text-xs font-semibold mb-1">Prompt Completo:</p>
-      <p className="text-xs font-mono bg-black/50 p-2 rounded whitespace-pre-wrap break-words max-h-40 overflow-y-auto">
-        {suggestion.prompt}
-      </p>
-    </div>
-  </div>
-);
-
-const MessageItem: React.FC<MessageItemProps> = React.memo(({ message, firestoreDocId, onSendMessage, onToggleMindMap, onMindMapLayoutChange, onSaveToLibrary }) => {
+const MessageItem: React.FC<MessageItemProps> = React.memo(({ message, firestoreDocId, onSendMessage, onToggleMindMap, onMindMapLayoutChange, onSaveToLibrary, showAiAvatar }) => {
   const isUser = message.sender === MessageSender.USER;
   const isModel = message.sender === MessageSender.MODEL;
   const isSystem = message.sender === MessageSender.SYSTEM;
-  const [isCopied, setIsCopied] = useState(false);
-  const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
-
-  // CORREÇÃO: Chamar useMemo no nível superior do componente.
-  const mindMapComponent = useMemo(() => {
-    // A lógica condicional agora está *dentro* do useMemo.
-    if (message.mindMap?.isVisible && message.mindMap) {
-      return (
-        <MindMapWrapper
-          isLoading={message.mindMap.isLoading}
-          error={message.mindMap.error}
-          nodes={message.mindMap.nodes}
-          edges={message.mindMap.edges}
-          initialExpandedNodeIds={message.mindMap.expandedNodeIds} // Passa o estado inicial
-          initialNodePositions={message.mindMap.nodePositions} // Passa o estado inicial
-          onLayoutSave={(layout) => onMindMapLayoutChange && onMindMapLayoutChange(firestoreDocId, layout)} // Renomeado para clareza
-        />
-      );
-    }
-    // Retorna null se a condição não for atendida.
-    return null;
-  }, [firestoreDocId, message.mindMap, onMindMapLayoutChange]);
 
   const renderMessageContent = () => {
+    // Se a mensagem do usuário foi gerada por uma sugestão, renderiza de forma especial.
+    if (isUser && message.generatedFrom) {
+      return (
+        <>
+          <p className="text-sm font-semibold text-white dark:text-gray-100 text-right">{message.generatedFrom.question_title}</p>
+          <p className="text-xs text-white/80 dark:text-gray-300/80 mt-1 text-right">{message.generatedFrom.description}</p>
+        </>
+      );
+    }
     if (isModel && !message.isLoading) {
       const proseClasses = "prose prose-sm prose-slate dark:prose-invert max-w-none prose-p:my-2 prose-headings:my-3 prose-blockquote:my-2 prose-li:my-1 prose-code:text-sm"; 
       const rawMarkup = marked.parse(message.text || "") as string;
@@ -129,34 +111,7 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({ message, firestore
       return (
         <div>
           <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">{message.text}</p>
-          <div className="space-y-2">
-            {message.optimizedPrompts.map((suggestion) => (
-              <div key={suggestion.prompt} className="relative">
-                <button 
-                  onClick={() => onSendMessage && onSendMessage(suggestion.question_title, message.sourceIds || [], suggestion.prompt)}
-                  className="w-full text-left flex items-center gap-3 p-3 rounded-lg bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 transition-colors"
-                >
-                  <Wand2 className="h-5 w-5 text-purple-500 flex-shrink-0 mt-0.5" />
-                  <div className="flex-grow pr-6">
-                    <p className="text-sm font-medium text-gray-800 dark:text-gray-100">{suggestion.question_title}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      {suggestion.description}
-                    </p>
-                  </div>
-                </button>
-                <button
-                  onClick={() => setActiveTooltip(activeTooltip === suggestion.prompt ? null : suggestion.prompt)}
-                  className="absolute top-1/2 right-2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-white rounded-full hover:bg-white/10 transition-colors"
-                  title="Ver detalhes da sugestão"
-                >
-                  <HelpCircle size={16} />
-                </button>
-                {activeTooltip === suggestion.prompt && (
-                  <SuggestionTooltip suggestion={suggestion} onClose={() => setActiveTooltip(null)} />
-                )}
-              </div>
-            ))}
-          </div>
+          <OptimizedPrompts prompts={message.optimizedPrompts} sourceIds={message.sourceIds || []} onSendMessage={onSendMessage} />
         </div>
       );
     }
@@ -172,20 +127,13 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({ message, firestore
     return <div className={`whitespace-pre-wrap text-sm ${textColorClass}`}>{message.text}</div>;
   };
   
-  const handleCopy = () => {
-    if (isCopied) return;
-    navigator.clipboard.writeText(message.text).then(() => {
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 2000); // O estado de "copiado" dura 2 segundos
-    }).catch(err => {
-      console.error('Falha ao copiar texto para a área de transferência:', err);
-    });
-  };
-
-  let bubbleClasses = "p-2 md:p-3 rounded-lg shadow w-full text-xs md:text-sm ";
+  let bubbleClasses = "relative p-2 md:p-3 rounded-lg shadow w-full text-xs md:text-sm ";
 
   if (isUser) {
-    bubbleClasses += "bg-blue-600 dark:bg-blue-900/80 text-white rounded-bl-none";
+    // Se for uma mensagem gerada por sugestão, usa o fundo verde, senão, o azul padrão.
+    bubbleClasses += message.generatedFrom 
+      ? "bg-[#132f10] text-white rounded-bl-none" 
+      : "bg-blue-600 text-white rounded-bl-none";
   } else if (isModel) {
     bubbleClasses += `bg-white/80 dark:bg-gray-800/50 border border-black/5 dark:border-white/10 rounded-bl-none`;
   } else { // System message
@@ -194,7 +142,7 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({ message, firestore
 
   return (
     <div className="flex flex-col items-start gap-2 mb-6">
-      <SenderInfo sender={message.sender} />
+      <SenderInfo sender={message.sender} showAiAvatar={showAiAvatar} />
       <div className="w-full">
         <div className={bubbleClasses}>
           {message.isLoading ? (
@@ -206,71 +154,59 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({ message, firestore
           ) : (
             renderMessageContent()
           )}
-          
+
           {(isModel && !message.isLoading && message.text) && (
             <div className="mt-2.5 pt-2.5 border-t border-black/5 dark:border-white/10 flex items-center justify-between gap-2">
-              {message.urlContext && message.urlContext.length > 0 ? (
-                <div>
-                  <h4 className="text-xs font-semibold text-gray-500 dark:text-[#A8ABB4] mb-1">URLs de Contexto Recuperadas:</h4>
-                  <ul className="space-y-0.5">
-                    {message.urlContext.map((meta, index) => {
-                      const statusText = getStatusText(meta.urlRetrievalStatus);
-                      const isSuccess = meta.urlRetrievalStatus === 'URL_RETRIEVAL_STATUS_SUCCESS';
+              <div className="flex items-center gap-2">
+                <MessageInfoTrigger message={message} />
+                {message.urlContext && message.urlContext.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-semibold text-gray-500 dark:text-[#A8ABB4] mb-1">URLs de Contexto Recuperadas:</h4>
+                    <ul className="space-y-0.5">
+                      {message.urlContext.map((meta, index) => {
+                        const statusText = getStatusText(meta.urlRetrievalStatus);
+                        const isSuccess = meta.urlRetrievalStatus === 'URL_RETRIEVAL_STATUS_SUCCESS';
 
-                      return (
-                        <li key={index} className="text-[11px] text-gray-500 dark:text-[#A8ABB4]">
-                          <a href={meta.retrievedUrl} target="_blank" rel="noopener noreferrer" className="hover:underline break-all text-blue-600 dark:text-[#79B8FF]">
-                            {meta.retrievedUrl}
-                          </a>
-                          <span className={`ml-1.5 px-1 py-0.5 rounded-sm text-[9px] ${
-                            isSuccess
-                              ? 'bg-gray-800 text-white dark:bg-white/[.12] dark:text-white'
-                              : 'bg-slate-200 text-slate-600 dark:bg-slate-600/30 dark:text-slate-400'
-                          }`}>
-                            {statusText}
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              ) : <div className="flex-1" />}
-              <div className="flex items-center gap-1 self-end flex-shrink-0">
-                <button
-                  onClick={handleCopy}
-                  className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-md transition-colors bg-transparent text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/5"
-                  title="Copiar para a área de transferência"
-                >
-                  {isCopied 
-                    ? <Check size={14} className="text-green-500" /> 
-                    : <Copy size={14} />}
-                </button>
-                {onToggleMindMap && !message.mindMap?.isArchived && ( // NOSONAR
-                  <button
-                    onClick={() => onToggleMindMap(firestoreDocId)}
-                    className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-md transition-colors ${message.mindMap?.isVisible ? 'bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-300' : 'bg-transparent text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/5'}`}
-                    title="Visualizar como um Mapa Mental"
-                    // Desabilita o botão se o ID for temporário (ainda não salvo no Firestore)
-                    disabled={firestoreDocId.startsWith('model-') || firestoreDocId.startsWith('user-')}
-                  >
-                    <BrainCircuit size={14} />
-                  </button>
-                )}
-                {onSaveToLibrary && (
-                   <button
-                    onClick={() => onSaveToLibrary(message)}
-                    className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-md transition-colors bg-transparent text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/5"
-                    title="Salvar na Biblioteca"
-                  >
-                    <Bookmark size={14} />
-                  </button>
+                        return (
+                          <li key={index} className="text-[11px] text-gray-500 dark:text-[#A8ABB4]">
+                            <a href={meta.retrievedUrl} target="_blank" rel="noopener noreferrer" className="hover:underline break-all text-blue-600 dark:text-[#79B8FF]">
+                              {meta.retrievedUrl}
+                            </a>
+                            <span className={`ml-1.5 px-1 py-0.5 rounded-sm text-[9px] ${
+                              isSuccess
+                                ? 'bg-gray-800 text-white dark:bg-white/[.12] dark:text-white'
+                                : 'bg-slate-200 text-slate-600 dark:bg-slate-600/30 dark:text-slate-400'
+                            }`}>
+                              {statusText}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
                 )}
               </div>
+              <MessageActions
+                message={message}
+                firestoreDocId={firestoreDocId}
+                onToggleMindMap={onToggleMindMap}
+                onSaveToLibrary={onSaveToLibrary}
+              />
             </div>
           )}
         </div>
-        {/* Renderiza o componente memoizado. */}
-        {mindMapComponent}
+        {/* CORREÇÃO: Renderiza o MindMap apenas se ele existir e estiver visível */}
+        {message.mindMap?.isVisible && message.mindMap.nodes && message.mindMap.edges && (
+          <MindMapWrapper
+            isLoading={message.mindMap.isLoading}
+            error={message.mindMap.error}
+            nodes={message.mindMap.nodes}
+            edges={message.mindMap.edges}
+            initialExpandedNodeIds={message.mindMap.expandedNodeIds}
+            initialNodePositions={message.mindMap.nodePositions}
+            onLayoutSave={(layout) => onMindMapLayoutChange && onMindMapLayoutChange(firestoreDocId, layout)}
+          />
+        )}
       </div>
     </div>
   );
