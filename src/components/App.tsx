@@ -73,7 +73,7 @@ const App: React.FC = () => {
   // Handler functions can be defined after the conditional returns.
   const handleOpenReportPanel = async () => {
     if (!user) return;
-    const data = await store.generateUsageReport(user as unknown as User);
+    const data = await store.generateUsageReport();
     setReportData(data);
     setIsReportPanelOpen(true);
   };

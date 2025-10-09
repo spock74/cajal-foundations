@@ -74,7 +74,7 @@ interface AppState {
   handleSendMessage: (query: string, sourceIds: string[], user: User, actualPrompt?: string) => Promise<{ success: boolean; error?: Error }>;
   handleOptimizePrompt: (query: string, sourceIds: string[], user: User) => Promise<{ success: boolean; error?: Error }>;
   handleGenerateMindMap: (firestoreDocId: string, user: User) => Promise<{ success: boolean; error?: Error }>;
-  generateUsageReport: (user: User) => Promise<any[]>;
+  generateUsageReport: () => Promise<any[]>;
   handleSetModel: (modelName: string) => void;
   handleMindMapLayoutChange: (messageId: string, layout: { expandedNodeIds?: string[], nodePositions?: { [nodeId: string]: { x: number, y: number } } }, user: User) => Promise<void>;
   handleStartEvaluation: (quizData: QuizData) => void;
@@ -480,7 +480,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   // Reporting
-  generateUsageReport: async (user) => {
+  generateUsageReport: async () => {
     const messagesCollectionGroupRef = collectionGroup(firestore, 'messages');
     const querySnapshot = await getDocs(messagesCollectionGroupRef);
     const allMessages: ChatMessage[] = querySnapshot.docs.map(doc => doc.data() as ChatMessage);
