@@ -12,6 +12,7 @@ import {
   KnowledgeSource,
   LibraryItem,
   QuizData,
+  OptimizedPrompt,
 } from '../types';
 import { DEFAULT_MODEL, models as modelInfoConfig } from '../components/models';
 import { firestore } from '@/firebaseConfig';
@@ -33,6 +34,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { User } from 'firebase/auth';
+import dagre from 'dagre';
 
 interface AppState {
   // State
@@ -87,6 +89,31 @@ interface AppState {
 
 const showModelSelect = import.meta.env.VITE_SHOW_MODEL_SELECT === 'true';
 const showAiAvatar = import.meta.env.VITE_SHOW_AI_AVATAR === 'true';
+
+const getLayoutedElements = (nodes: any[], edges: any[], direction = 'TB') => {
+  const dagreGraph = new dagre.graphlib.Graph();
+  dagreGraph.setDefaultEdgeLabel(() => ({}));
+  dagreGraph.setGraph({ rankdir: direction, nodesep: 50, ranksep: 150 }); // Aumentado ranksep para 150 para mais espaço vertical
+
+  nodes.forEach((node) => {
+    // Defina uma largura e altura padrão para os nós. Ajuste conforme necessário.
+    dagreGraph.setNode(node.id, { width: 250, height: 80 });
+  });
+
+  edges.forEach((edge) => {
+    dagreGraph.setEdge(edge.source, edge.target);
+  });
+
+  dagre.layout(dagreGraph);
+
+  const layoutedNodePositions: { [key: string]: { x: number; y: number } } = {};
+  nodes.forEach((node) => {
+    const nodeWithPosition = dagreGraph.node(node.id);
+    layoutedNodePositions[node.id] = { x: nodeWithPosition.x, y: nodeWithPosition.y };
+  });
+
+  return layoutedNodePositions;
+};
 
 // Centralized object to hold all active listener unsubscribe functions
 let listeners = {
@@ -442,10 +469,19 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
 
     const messagesRef = collection(firestore, 'users', user.uid, 'groups', activeGroupId, 'conversations', activeConversationId, 'messages');
-    const userMessageData = { conversationId: activeConversationId, text: query, sender: MessageSender.USER, timestamp: serverTimestamp(), sourceIds, generatedFrom };
+    
+    // Constrói o objeto da mensagem do usuário, garantindo que 'generatedFrom' só seja adicionado se existir.
+    const userMessageData: { [key: string]: any } = {
+      conversationId: activeConversationId,
+      text: query,
+      sender: MessageSender.USER,
+      timestamp: serverTimestamp(),
+      sourceIds,
+    };
+    if (generatedFrom) userMessageData.generatedFrom = generatedFrom;
     
     // 1. Add user message to Firestore and local state for immediate feedback
-    const userMessageDoc = await addDoc(messagesRef, userMessageData);    const finalUserMessage: ChatMessage = { ...userMessageData, id: userMessageDoc.id, timestamp: new Date() };
+    const userMessageDoc = await addDoc(messagesRef, userMessageData);    const finalUserMessage: ChatMessage = { ...(userMessageData as Omit<ChatMessage, 'id'>), id: userMessageDoc.id, timestamp: new Date() };
 
     // 2. Create the model's placeholder document in Firestore to get its REAL ID first.
     const placeholderData = { conversationId: activeConversationId, text: 'Processando...', sender: MessageSender.MODEL, timestamp: serverTimestamp(), isLoading: true, sourceIds };
@@ -459,7 +495,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       // Prepara o histórico da conversa, excluindo a mensagem atual do usuário e o placeholder.
       const conversationHistory = get().chatMessages
         .filter(msg => msg.id !== finalUserMessage.id && msg.id !== finalModelPlaceholder.id)
-        .map(({ sender, text }) => ({ sender: sender === MessageSender.USER ? 'user' : 'model', text }));
+        .map(({ sender, text }) => ({ sender: sender === MessageSender.USER ? MessageSender.USER : MessageSender.MODEL, text }));
 
       const selectedSources = sourcesForActiveGroup.filter(s => sourceIds.includes(s.id));
       const response = await geminiService.generateContentWithSources(actualPrompt || query, selectedSources, activeModel, conversationHistory);
@@ -539,13 +575,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       const { title, nodes, edges } = await geminiService.generateMindMapFromText(currentMessageState.text, activeModel);
       if (nodes.length === 0) throw new Error("Não foi possível extrair conceitos.");
       
+      const nodePositions = getLayoutedElements(nodes, edges);
       const rootNode = nodes.find(n => !edges.some(e => e.target === n.id)) || nodes[0];
       const libraryItem = { type: 'mindmap', content: title, timestamp: serverTimestamp(), conversationId: activeConversationId, groupId: activeGroupId, messageId: firestoreDocId, sourceIds: currentMessageState.sourceIds || [] };
       const libraryCollectionRef = collection(firestore, 'users', user.uid, 'libraryItems');
       await addDoc(libraryCollectionRef, libraryItem);
 
       await updateDoc(messageDocRef, {
-        mindMap: { title, isVisible: true, isLoading: false, error: null, nodes, edges, isArchived: true, expandedNodeIds: rootNode ? [rootNode.id] : [], nodePositions: {} }
+        mindMap: { title, isVisible: true, isLoading: false, error: null, nodes, edges, isArchived: true, expandedNodeIds: rootNode ? [rootNode.id] : [], nodePositions }
       });
       return { success: true };
     } catch (e: any) {

@@ -32,11 +32,12 @@ interface MindMapDisplayProps {
 const dagreGraph = new dagre.graphlib.Graph();
 dagreGraph.setDefaultEdgeLabel(() => ({}));
 
+
 const getLayoutedElements = (nodes: any[], edges: any[], direction = 'LR') => {
   dagreGraph.setGraph({
     rankdir: direction,
-    ranksep: 100,
-    nodesep: 0, // Aumenta a separação vertical entre nós no mesmo nível
+    ranksep: 100, // Espaço HORIZONTAL entre os níveis (pai e filhos).
+    nodesep: 25,  // Espaço VERTICAL entre nós no mesmo nível (irmãos).
   });
 
   nodes.forEach((node) => {
@@ -76,17 +77,19 @@ const CustomMindMapNode = React.memo(({ id, data }: { id: string, data: any }) =
   return (
     <div className={`rounded-md p-2 relative text-center flex items-center justify-center border-2 ${colorClass}`} style={{ minHeight: 40 }}>
       <Handle type="target" position={Position.Left} isConnectable={false} className="!bg-transparent" />
+      <Handle type="target" position={Position.Top} isConnectable={false} className="!bg-transparent" />
       <span className="text-xs font-medium text-gray-800 dark:text-gray-100" style={{ maxWidth: 180 }}>{data.label}</span>
       {data.hasChildren && (
         <button
           onClick={() => data.handleToggleNode(id)}
-          className="absolute right-[-10px] top-1/2 -translate-y-1/2 w-5 h-5 bg-gray-600 dark:bg-gray-300 text-white dark:text-black rounded-full flex items-center justify-center hover:scale-110 transition-transform"
+          className="absolute right-[-22px] top-1/2 -translate-y-1/2 w-5 h-5 bg-gray-600 dark:bg-gray-300 text-white dark:text-black rounded-full flex items-center justify-center hover:scale-110 transition-transform"
           aria-label={data.isExpanded ? 'Recolher nó' : 'Expandir nó'}
         >
           {data.isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         </button>
       )}
       <Handle type="source" position={Position.Right} isConnectable={false} className="!bg-transparent" />
+      <Handle type="source" position={Position.Bottom} isConnectable={false} className="!bg-transparent" />
     </div>
   );
 });
@@ -294,10 +297,10 @@ const MindMapDisplay: React.FC<MindMapDisplayProps> = ({
 };
 
 // O ReactFlow precisa ser envolvido por um Provider para que o hook `useReactFlow` funcione.
-const MindMapWrapper: React.FC<MindMapDisplayProps> = (props) => (
-  <ReactFlowProvider>
-    <MindMapDisplay {...props} />
-  </ReactFlowProvider>
-);
-
-export default MindMapWrapper;
+export default function MindMapWrapper(props: MindMapDisplayProps) {
+  return (
+    <ReactFlowProvider>
+      <MindMapDisplay {...props} />
+    </ReactFlowProvider>
+  );
+}

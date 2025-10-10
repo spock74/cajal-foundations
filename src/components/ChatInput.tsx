@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { KnowledgeSource, MessageSender } from '../types';
+import { KnowledgeSource } from '../types';
 import { Send, Sparkles } from 'lucide-react';
 
 interface ChatInputProps {
