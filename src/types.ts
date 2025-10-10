@@ -12,8 +12,8 @@ export enum MessageSender {
 }
 
 export interface UrlContextMetadataItem {
-  retrievedUrl: string;
-  urlRetrievalStatus: string;
+  retrievedUrl: string | undefined;
+  urlRetrievalStatus: string | undefined;
 }
 
 export interface UsageMetadata {
