@@ -1,0 +1,26 @@
+{
+  "mcpServers": {
+    "firebase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "firebase-tools@latest",
+        "experimental:mcp",
+        "--only",
+        "auth,firestore"
+      ]
+    },
+    "context7_": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "CONTEXT7_API_KEY": "ctx7sk-3aaba18e-c3b3-4fef-b4ec-a910e6a8d4cf"
+      }
+    },
+    "context7": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp", "--api-key", "ctx7sk-3aaba18e-c3b3-4fef-b4ec-a910e6a8d4cf"]
+    }
+  }
+}

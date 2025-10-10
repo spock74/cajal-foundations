@@ -7,6 +7,7 @@ import {HttpsError} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import {getGenAIClient} from "./utils.js";
 import {createAuthenticatedFunction} from "./functionWrapper.js";
+import {z} from "zod";
 
 interface GenerateMindMapData {
   textToAnalyze: string;
@@ -18,6 +19,21 @@ interface MindMapResponse {
   nodes: {id: string; label: string; type: string}[];
   edges: {id: string; source: string; target: string}[];
 }
+
+// Schema de validação com Zod para garantir a integridade da resposta da IA
+const MindMapResponseSchema = z.object({
+  title: z.string().min(1),
+  nodes: z.array(z.object({
+    id: z.string().min(1),
+    label: z.string().min(1),
+    type: z.string().min(1),
+  })).min(1),
+  edges: z.array(z.object({
+    id: z.string().min(1),
+    source: z.string().min(1),
+    target: z.string().min(1),
+  })),
+});
 
 const structuredPrompt = `
   Analise o texto a seguir e estruture as informações como um mapa mental.
@@ -36,7 +52,11 @@ const structuredPrompt = `
 
 export const generateMindMap = createAuthenticatedFunction<GenerateMindMapData, Promise<MindMapResponse>>(async (request) => {
   const {textToAnalyze, modelName} = request.data;
-  // A validação de payload permanece aqui, pois é específica da função.
+  // Validação explícita do payload de entrada para maior robustez
+  if (!textToAnalyze || !modelName) {
+    throw new HttpsError("invalid-argument", "O payload da requisição é inválido. 'textToAnalyze' e 'modelName' são obrigatórios.");
+  }
+
   const prompt = structuredPrompt.replace("{textToAnalyze}", textToAnalyze);
 
   try {
@@ -52,11 +72,14 @@ export const generateMindMap = createAuthenticatedFunction<GenerateMindMapData, 
       throw new Error("A resposta da API do Gemini estava vazia.");
     }
 
-    const parsed = JSON.parse(responseText);
-    if (!parsed.title || !parsed.nodes || !parsed.edges) {
-      throw new Error("JSON do mapa mental inválido ou incompleto.");
+    const parsedJson = JSON.parse(responseText);
+    // Valida o JSON recebido contra o schema do Zod
+    const validationResult = MindMapResponseSchema.safeParse(parsedJson);
+    if (!validationResult.success) {
+      logger.error("JSON do mapa mental inválido ou incompleto.", {error: validationResult.error});
+      throw new Error("A resposta da IA não corresponde ao schema esperado.");
     }
-    return parsed;
+    return validationResult.data;
   } catch (error) {
     logger.error("Erro ao executar generateMindMap:", error);
     throw new HttpsError("internal", "Falha ao gerar o mapa mental.");
