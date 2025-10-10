@@ -8,13 +8,13 @@ import { ChatMessage, MessageSender, KnowledgeSource } from '../types';
 import MessageItem from './MessageItem'; // NOSONAR
 import ThemeSwitcher from './ThemeSwitcher'; // NOSONAR
 import { Send, Menu, Sparkles } from 'lucide-react';
-import { useAppStore } from '@/stores/appStore';
 
 interface ChatInterfaceProps {
   activeSources: KnowledgeSource[];
   messages: ChatMessage[];
+  activeConversationId: string | null;
   conversationTitle: string;
-  onSendMessage: (query: string, sourceIds: string[], actualPrompt?: string, generatedFrom?: any) => void;
+  onSendMessage: (query: string, sourceIds: string[], actualPrompt?: string, generatedFrom?: any) => Promise<any>;
   onOptimizePrompt: (query: string, sourceIds: string[]) => void;
   isLoading: boolean;
   placeholderText?: string;
@@ -46,9 +46,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   showAiAvatar
 }) => {
   const [userQuery, setUserQuery] = useState('');
+  const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const conversations = useAppStore(s => s.conversations);
-  const activeConversationId = useAppStore(s => s.activeConversationId);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -56,21 +55,33 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   useEffect(scrollToBottom, [messages]);
 
-  // A entrada de texto agora é desabilitada apenas enquanto a IA está processando.
+  // Lógica de habilitação do input:
+  // 1. O input está sempre desabilitado se a IA está carregando (isLoading).
+  // 2. Se NÃO houver uma conversa ativa, o input SÓ é habilitado se houver fontes selecionadas.
+  // 3. Se JÁ houver uma conversa ativa, o input está sempre habilitado (permitindo perguntas de acompanhamento sem fontes).
   const isInputDisabled = isLoading;
 
+  // O placeholder muda se for uma nova conversa sem fontes selecionadas.
+
   const handleSend = () => {
-    if (userQuery.trim() && !isInputDisabled) {
+    if (userQuery.trim() && !isSending) {
+      setIsSending(true);
       const selectedSourceIds = activeSources.filter(s => s.selected).map(s => s.id);
-      onSendMessage(userQuery.trim(), selectedSourceIds);
+      onSendMessage(userQuery.trim(), selectedSourceIds).finally(() => {
+        setIsSending(false);
+      });
       setUserQuery('');
     }
   };
 
   const handleOptimize = () => {
-    if (userQuery.trim() && !isInputDisabled) {
+    if (userQuery.trim() && !isSending) {
+      // A otimização pode ser mais demorada, então usamos o estado global `isLoading`
+      // para desabilitar o campo, mas o botão de envio terá seu próprio estado.
       const selectedSourceIds = activeSources.filter(s => s.selected).map(s => s.id);
       onOptimizePrompt(userQuery.trim(), selectedSourceIds);
+      // Não limpamos o campo aqui para que o usuário veja o que foi otimizado.
+      // A lógica de limpar pode ser gerenciada no AppContext se necessário.
       setUserQuery('');
     }
   };
@@ -144,8 +155,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           </button>
           <button
             onClick={handleSend}
-            disabled={isInputDisabled || !userQuery.trim()}            className="h-10 w-10 p-2 bg-gray-800 hover:bg-black dark:bg-white/10 dark:hover:bg-white/20 text-white rounded-xl transition-colors disabled:bg-gray-300 dark:disabled:bg-white/5 disabled:text-gray-500 dark:disabled:text-gray-600 flex items-center justify-center flex-shrink-0"            aria-label="Enviar mensagem"          >
-            {(isLoading && messages.length > 0 && messages[messages.length-1]?.isLoading && messages[messages.length-1]?.sender === MessageSender.MODEL) ? 
+            disabled={isSending || !userQuery.trim()}            className="h-10 w-10 p-2 bg-gray-800 hover:bg-black dark:bg-white/10 dark:hover:bg-white/20 text-white rounded-xl transition-colors disabled:bg-gray-300 dark:disabled:bg-white/5 disabled:text-gray-500 dark:disabled:text-gray-600 flex items-center justify-center flex-shrink-0"            aria-label="Enviar mensagem"          >
+            {isSending ? 
               <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div> 
               : <Send size={16} />
             }
