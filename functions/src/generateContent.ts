@@ -32,8 +32,8 @@ interface GenerateContentData {
 }
 
 interface UrlContextMetadataItem {
-  retrievedUrl: string;
-  urlRetrievalStatus: string;
+  retrievedUrl: string | undefined;
+  urlRetrievalStatus: string | undefined;
 }
 
 interface UsageMetadata {
@@ -90,11 +90,14 @@ export const generateContent = createAuthenticatedFunction<GenerateContentData, 
 
     // Mapeia a resposta da API para a nossa interface GeminiResponse.
     const urlMetadata = result.candidates?.[0]?.urlContextMetadata?.urlMetadata;
-    const mappedUrlContext = urlMetadata?.map((meta: UrlMetadata) => ({
-      retrievedUrl: meta.retrievedUrl,
-      urlRetrievalStatus: meta.urlRetrievalStatus,
-    }));
-
+    const mappedUrlContext = urlMetadata
+      ?.map((meta: UrlMetadata) => ({
+        retrievedUrl: meta.retrievedUrl,
+        urlRetrievalStatus: meta.urlRetrievalStatus as string,
+      }))
+      .filter((meta): meta is { retrievedUrl: string; urlRetrievalStatus: string } =>
+        typeof meta.retrievedUrl === "string" && typeof meta.urlRetrievalStatus === "string"
+      ) as { retrievedUrl: string; urlRetrievalStatus: string }[] | undefined;
     const usageMetadata = result.usageMetadata ? {
       promptTokenCount: result.usageMetadata.promptTokenCount ?? 0,
       candidatesTokenCount: result.usageMetadata.candidatesTokenCount ?? 0,

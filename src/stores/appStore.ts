@@ -352,16 +352,34 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // Library Management
   handleSaveToLibrary: async (message, user) => {
-    const { activeGroupId, activeConversationId } = get();
+    const { activeGroupId, activeConversationId, chatMessages } = get();
     if (!activeGroupId || !activeConversationId) return;
+
+    // Encontra a pergunta do usuário que originou esta resposta da IA.
+    const messageIndex = chatMessages.findIndex(m => m.id === message.id);
+    let originalUserMessage: ChatMessage | undefined;
+
+    if (messageIndex > 0) {
+      // Procura para trás a partir da mensagem da IA para encontrar a última mensagem do usuário.
+      for (let i = messageIndex - 1; i >= 0; i--) {
+        if (chatMessages[i].sender === MessageSender.USER) {
+          originalUserMessage = chatMessages[i];
+          break;
+        }
+      }
+    }
+
     const newItem = {
       type: 'text',
-      content: message.text,
+      // Usa o texto da pergunta do usuário como conteúdo principal.
+      content: originalUserMessage?.text || message.text,
       timestamp: serverTimestamp(),
       conversationId: activeConversationId,
       groupId: activeGroupId,
       messageId: message.id,
-      sourceIds: message.sourceIds || []
+      sourceIds: message.sourceIds || [],
+      generatedFrom: originalUserMessage?.generatedFrom || null, // Salva os dados da sugestão da pergunta original.
+      usageMetadata: message.usageMetadata || null, // Mantém os metadados de uso da resposta da IA.
     };
     const libraryCollectionRef = collection(firestore, 'users', user.uid, 'libraryItems');
     await addDoc(libraryCollectionRef, newItem);

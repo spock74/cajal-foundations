@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useMemo } from "react";
-import { ChevronLeft, Loader2 } from "lucide-react";
+import { ChevronLeft, Loader2, Trash2 } from "lucide-react";
 import { useAppStore } from "@/stores/appStore";
 import { useAuth } from "@/hooks/useAuth";
 import ConversationManager from "./ConversationManager";
@@ -18,6 +18,17 @@ import TeacherDashboard from "@/components/dashboard/TeacherDashboard";
 import { sampleQuizData } from "@/data/pedagogical_content/formative_quizzes/cardiologia_basica_qf_v1";
 import { useToast } from "@/hooks/use-toast";
 import { User } from "firebase/auth";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { buttonVariants } from "./ui/button";
 
 /**
  * A component responsible for initializing and managing Firestore listeners
@@ -48,6 +59,12 @@ const App: React.FC = () => {
   const [isReportPanelOpen, setIsReportPanelOpen] = useState(false);
   const [reportData, setReportData] = useState<ModelUsage[]>([]);
   const [isTeacherDashboardVisible, setIsTeacherDashboardVisible] = useState(true);
+  const [deleteDialogState, setDeleteDialogState] = useState<{
+    isOpen: boolean;
+    messageId?: string;
+    messageText?: string;
+  }>({ isOpen: false });
+
 
   // TODO: A lógica de `role` deve vir do perfil do usuário no Firestore,
   // associado ao `useAuth` hook. Por enquanto, simulamos um professor.
@@ -115,6 +132,25 @@ const App: React.FC = () => {
     }
   };
 
+  const handleDeleteMessageRequest = (messageId: string, messageText: string) => {
+    setDeleteDialogState({ isOpen: true, messageId, messageText });
+  };
+
+  const confirmDeleteMessage = async () => {
+    if (!user || !deleteDialogState.messageId) return;
+    
+    const { dismiss } = toast({ title: "Apagando mensagem..." });
+    try {
+      await store.handleDeleteMessage(deleteDialogState.messageId, user as unknown as User);
+      toast({ title: "Mensagem apagada com sucesso." });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Erro ao apagar mensagem", description: (error as Error).message });
+    } finally {
+      dismiss();
+      setDeleteDialogState({ isOpen: false });
+    }
+  };
+
   return (
     // Usando React.Fragment para permitir que o Modal seja um irmão do layout principal.
     <>
@@ -171,6 +207,7 @@ const App: React.FC = () => {
                 onToggleMindMap={handleGenerateMindMap} 
                 onMindMapLayoutChange={(msgId, layout) => user && store.handleMindMapLayoutChange(msgId, layout, user as unknown as User)} 
                 onSaveToLibrary={(message) => user && store.handleSaveToLibrary(message, user as unknown as User)} 
+                onDeleteMessage={handleDeleteMessageRequest}
                 theme={store.theme} 
                 setTheme={store.setTheme} 
                 showAiAvatar={store.showAiAvatar}
@@ -206,6 +243,23 @@ const App: React.FC = () => {
           onClose={store.handleCloseEvaluation}
           quizData={store.activeQuizData}
         />
+        <AlertDialog open={deleteDialogState.isOpen} onOpenChange={(isOpen) => setDeleteDialogState({ ...deleteDialogState, isOpen })}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <Trash2 className="text-destructive" />
+                Confirmar Exclusão
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja apagar esta mensagem e todos os seus dados associados (mapas mentais, itens na biblioteca, etc.)? Esta ação não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDeleteMessage} className={buttonVariants({ variant: "destructive" })}>Apagar</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </>
   );
