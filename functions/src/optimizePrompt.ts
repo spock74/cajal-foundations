@@ -5,8 +5,8 @@
 /* eslint-disable max-len */
 import {HttpsError} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
-import {getGenAIClient} from "./utils.js";
-import {createAuthenticatedFunction} from "./functionWrapper.js";
+import {getGenAIClient} from "./utils.js"; // NOSONAR
+import {createAuthenticatedFunction} from "./functionWrapper.js"; // NOSONAR
 
 // Tipos locais para clareza, espelhando o frontend.
 type KnowledgeSource = {
@@ -77,8 +77,8 @@ export const optimizePrompt = createAuthenticatedFunction<OptimizePromptData, Pr
 
   // 2. Lógica de Negócio (copiada e adaptada do frontend)
   const sourcesContent = sources
-    .filter(s => s.selected && s.content) // Garante que a fonte está selecionada e tem conteúdo
-    .map(source => {
+    .filter((s) => s.selected && s.content) // Garante que a fonte está selecionada e tem conteúdo
+    .map((source) => {
       const sourceType = source.type === "file" ? "Arquivo" : "URL";
       return `Fonte (${sourceType}: ${source.name}):\n---\n${source.content}\n---\n\n`;
     }).join("");

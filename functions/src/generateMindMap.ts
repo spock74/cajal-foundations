@@ -5,8 +5,8 @@
 
 import {HttpsError} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
-import {getGenAIClient} from "./utils.js";
-import {createAuthenticatedFunction} from "./functionWrapper.js";
+import {getGenAIClient} from "./utils.js"; // NOSONAR
+import {createAuthenticatedFunction} from "./functionWrapper.js"; // NOSONAR
 import {z} from "zod";
 
 type KnowledgeSource = {

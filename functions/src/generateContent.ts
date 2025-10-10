@@ -5,9 +5,10 @@
 
 import {HttpsError} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
-import {getGenAIClient} from "./utils.js";
-import {Content, UrlMetadata} from "@google/genai";
-import {createAuthenticatedFunction} from "./functionWrapper.js";
+import {getGenAIClient} from "./utils.js"; // NOSONAR
+// import {Content, UrlMetadata} from "@google/genai";
+import {Content} from "@google/genai";
+import {createAuthenticatedFunction} from "./functionWrapper.js"; // NOSONAR
 
 type KnowledgeSource = {
   id: string;
@@ -91,7 +92,7 @@ export const generateContent = createAuthenticatedFunction<GenerateContentData, 
     // Mapeia a resposta da API para a nossa interface GeminiResponse.
     const urlMetadata = result.candidates?.[0]?.urlContextMetadata?.urlMetadata;
     const mappedUrlContext = urlMetadata
-      ?.map((meta: UrlMetadata) => ({
+      ?.map((meta) => ({
         retrievedUrl: meta.retrievedUrl,
         urlRetrievalStatus: meta.urlRetrievalStatus as string,
       }))

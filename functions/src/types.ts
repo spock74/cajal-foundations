@@ -4,5 +4,5 @@
  */
 
 export enum MessageSender {
-    USER = 'USER', MODEL = 'MODEL', SYSTEM = 'SYSTEM'
+    USER = "USER", MODEL = "MODEL", SYSTEM = "SYSTEM"
 }

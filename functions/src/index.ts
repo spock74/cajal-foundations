@@ -6,17 +6,17 @@
 import {setGlobalOptions} from "firebase-functions/v2";
 import {HttpsError} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
-import {getGenAIClient} from "./utils.js";
-import {createAuthenticatedFunction} from "./functionWrapper.js";
-import {optimizePrompt} from "./optimizePrompt.js";
-import {generateContent} from "./generateContent.js";
-import {getInitialSuggestions} from "./getInitialSuggestions.js";
-import {deleteMessageCascade} from "./deleteMessageCascade.js";
-import {generateMindMap} from "./generateMindMap.js";
+import {getGenAIClient} from "./utils.js"; // NOSONAR
+import {createAuthenticatedFunction} from "./functionWrapper.js"; // NOSONAR
+import {optimizePrompt} from "./optimizePrompt.js"; // NOSONAR
+import {generateContent} from "./generateContent.js"; // NOSONAR
+import {getInitialSuggestions} from "./getInitialSuggestions.js"; // NOSONAR
+import {deleteMessageCascade} from "./deleteMessageCascade.js"; // NOSONAR
+import {generateMindMap} from "./generateMindMap.js"; // NOSONAR
 
 setGlobalOptions({maxInstances: 10});
 
-const generateTitle = createAuthenticatedFunction<{text: string}, Promise<{title: string}>>(async (request) => { // NOSONAR
+const generateTitle = createAuthenticatedFunction<{text: string}, Promise<{title: string}>>(async (request) => {
   const firstMessage = request.data.text;
   if (!firstMessage || typeof firstMessage !== "string") {
     logger.error("A requisição não continha um texto válido.", {

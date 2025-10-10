@@ -15,8 +15,10 @@ const defaultOptions: CallableOptions = {
   cors: [
     /^https:\/\/localhost:\d+$/,
     /^https:\/\/.*\.cloudworkstations\.dev$/,
-    // Aceita o domínio com ou sem o subdomínio 'www'.
-    /^https:\/\/(www\.)?newcajalfoundations\.web\.app$/,
+    // Adicionando a origem específica do Cloud Workstation para garantir a permissão
+    "https://5173-firebase-cajalfoundationsgit-1759352952209.cluster-thle3dudhffpwss7zs5hxaeu2o.cloudworkstations.dev",
+    // Adiciona o domínio de produção explicitamente para resolver o problema de CORS.
+    "https://newcajalfoundations.web.app",
   ],
   // Adicionar outras opções globais aqui, como 'region'.
 };

@@ -3,11 +3,11 @@
  * @copyright 2025 - Todos os direitos reservados
  */
 
-import { HttpsError } from "firebase-functions/v2/https";
+import {HttpsError} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
-import { createAuthenticatedFunction } from "./functionWrapper.js";
-import { getFirestore } from "firebase-admin/firestore";
-import { MessageSender } from "./types.js";
+import {createAuthenticatedFunction} from "./functionWrapper.js"; // NOSONAR
+import {getFirestore} from "firebase-admin/firestore";
+// import {MessageSender} from "./types";
 
 interface DeleteMessageData {
   groupId: string;
@@ -16,8 +16,8 @@ interface DeleteMessageData {
 }
 
 export const deleteMessageCascade = createAuthenticatedFunction<DeleteMessageData, Promise<{ success: boolean }>>(async (request) => {
-  const { groupId, conversationId, messageId } = request.data;
-  const userId = request.auth.uid;
+  const {groupId, conversationId, messageId} = request.data;
+  const userId = request.auth!.uid;
 
   if (!groupId || !conversationId || !messageId) {
     throw new HttpsError("invalid-argument", "groupId, conversationId, e messageId são obrigatórios.");
@@ -48,7 +48,7 @@ export const deleteMessageCascade = createAuthenticatedFunction<DeleteMessageDat
     });
 
     logger.info(`Exclusão em cascata concluída para a mensagem ${messageId}`);
-    return { success: true };
+    return {success: true};
   } catch (error) {
     logger.error("Erro na exclusão em cascata via Cloud Function:", error);
     throw new HttpsError("internal", "Falha ao apagar a mensagem e seus dados associados.");

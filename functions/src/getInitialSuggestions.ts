@@ -5,8 +5,8 @@
 
 import {HttpsError} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
-import {getGenAIClient} from "./utils.js";
-import {createAuthenticatedFunction} from "./functionWrapper.js";
+import {getGenAIClient} from "./utils.js"; // NOSONAR
+import {createAuthenticatedFunction} from "./functionWrapper.js"; // NOSONAR
 
 type KnowledgeSource = {
   type: "url" | "file";
@@ -24,7 +24,7 @@ export const getInitialSuggestions = createAuthenticatedFunction<InitialSuggesti
   if (urls.length === 0) return {suggestions: []};
 
   const prompt = `Com base no conteúdo das URLs: ${urls.join("\n")}, ` +
-    `gere 3 perguntas. Retorne APENAS um array de strings JSON.`;
+    "gere 3 perguntas. Retorne APENAS um array de strings JSON.";
   
   try {
     const genAI = getGenAIClient();
