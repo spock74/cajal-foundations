@@ -16,9 +16,12 @@ export default defineConfig({
     strictPort: true, // Falha se a porta já estiver em uso, em vez de tentar outra
     open: true, // Abre o navegador automaticamente na URL correta ao iniciar.
     hmr: {
-      // Corrige o problema de conexão WebSocket do HMR em ambientes com proxy (como Cloud Workstations).
-      // O cliente HMR usará o mesmo host e protocolo da página atual.
-      protocol: 'wss' // Força o uso de WebSocket seguro, necessário para conexões HTTPS.
+      // Configuração explícita para HMR em ambientes com proxy (Cloud Workstations, Gitpod, etc.)
+      // O cliente (navegador) usará o host da URL atual para a conexão WebSocket.
+      // A porta 443 é a porta padrão para conexões HTTPS (wss).
+      protocol: 'wss',
+      host: `${process.env.HOSTNAME}`,
+      clientPort: 443
     },
     // Cria um proxy para cada emulador do Firebase. Isso permite que o frontend
     // se comunique com eles através do servidor Vite, resolvendo problemas de CORS e 'localhost'

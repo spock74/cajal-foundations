@@ -61,6 +61,7 @@ export interface ChatMessage {
   model?: string;
   generatedFrom?: OptimizedPrompt;
   usageMetadata?: UsageMetadata;
+  generatedFromId?: string;
 }
 
 // Interface base para metadados comuns a todas as fontes de conhecimento.

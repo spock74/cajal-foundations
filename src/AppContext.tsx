@@ -58,9 +58,9 @@ interface AppContextActions {
   handleDeleteGroup: (groupId: string) => Promise<void>;
   handleUpdateGroup: (groupId: string, newName: string) => Promise<void>;
   handleSetConversation: (id: string) => Promise<void>;
-  handleNewConversation: () => void;
+  handleNewConversation: () => void; // NOSONAR
   handleDeleteConversation: (id: string) => Promise<void>;
-  handleClearAllConversations: () => Promise<void>;
+  handleClearAllData: () => Promise<void>;
   handleUrlAdd: (url: string) => Promise<void>;
   handleFileAdd: (file: File) => Promise<void>;
   handleRemoveSource: (sourceId: string) => Promise<void>; // NOSONAR
@@ -68,7 +68,7 @@ interface AppContextActions {
   handleSaveToLibrary: (message: ChatMessage) => Promise<void>;
   handleDeleteLibraryItem: (id: string) => Promise<void>;
   handleOpenLibraryItem: (item: LibraryItem) => Promise<void>;
-  handleSendMessage: (query: string, sourceIds: string[], actualPrompt?: string) => Promise<void>;
+  handleSendMessage: (query: string, sourceIds: string[], actualPrompt?: string, generatedFrom?: any) => Promise<void>;
   handleOptimizePrompt: (query: string, sourceIds: string[]) => Promise<void>;
   handleGenerateMindMap: (firestoreDocId: string) => Promise<void>;
   generateUsageReport: () => Promise<any[]>;
@@ -229,7 +229,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [user, activeGroupId, activeConversationId, toast, setChatMessages]);
 
-  const handleClearAllConversations = useCallback(async () => {
+  const handleClearAllData = useCallback(async () => {
     if (!user) {
       toast({ variant: "destructive", title: "Erro", description: "Nenhum usuário logado." });
       return;
@@ -244,6 +244,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const batch = writeBatch(firestore);
 
       for (const groupDoc of groupsSnapshot.docs) {
+        const sourcesRef = collection(groupDoc.ref, 'sources');
+        const sourcesSnapshot = await getDocs(sourcesRef);
+        sourcesSnapshot.forEach(sourceDoc => batch.delete(sourceDoc.ref));
+
         const conversationsRef = collection(groupDoc.ref, 'conversations');
         const conversationsSnapshot = await getDocs(conversationsRef);
 
@@ -255,6 +259,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
         batch.delete(groupDoc.ref);
       }
+
+      // Adiciona a exclusão de todos os itens da biblioteca
+      const libraryItemsRef = collection(firestore, 'users', user.uid, 'libraryItems');
+      const libraryItemsSnapshot = await getDocs(libraryItemsRef);
+      libraryItemsSnapshot.forEach(doc => batch.delete(doc.ref));
 
       await batch.commit();
 
@@ -391,7 +400,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [activeGroupId, activeConversationId, handleSetGroup, handleSetConversation, user]);
   
-  const handleSendMessage = useCallback(async (query: string, sourceIds: string[], actualPrompt?: string) => {
+  const handleSendMessage = useCallback(async (query: string, sourceIds: string[], actualPrompt?: string, generatedFrom?: any) => {
     if (!query.trim() || isLoading || !user || !activeGroupId) return;
     const promptForAI = actualPrompt || query;
     setIsLoading(true);
@@ -410,18 +419,39 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const messagesRef = collection(firestore, 'users', user.uid, 'groups', activeGroupId, 'conversations', currentConversationId, 'messages');
 
-    const userMessage: ChatMessage = { id: `user-${Date.now()}`, conversationId: currentConversationId, text: query, sender: MessageSender.USER, timestamp: new Date(), sourceIds };
+    const userMessage: Partial<ChatMessage> = {
+      id: `user-${Date.now()}`, // Adiciona um ID temporário para o estado local
+      conversationId: currentConversationId,
+      text: query,
+      sender: MessageSender.USER,
+      timestamp: new Date(),
+      sourceIds,
+    };
+    if (generatedFrom) {
+      userMessage.generatedFrom = generatedFrom;
+    }
     const modelPlaceholder: ChatMessage = { id: `model-${Date.now()}`, conversationId: currentConversationId, text: 'Processando...', sender: MessageSender.MODEL, timestamp: new Date(), isLoading: true, sourceIds };
     
-    setChatMessages(prev => [...prev, userMessage, modelPlaceholder]);
+    setChatMessages(prev => [...prev, userMessage as ChatMessage, modelPlaceholder]);
     
     // Salva as mensagens no Firestore
-    await addDoc(messagesRef, { ...userMessage, timestamp: serverTimestamp() });
+    // O ID local é descartado, pois o Firestore gerará o seu próprio.
+    const messageToSave = {
+      ...userMessage,
+      id: undefined, // Firestore will generate its own ID.
+      timestamp: serverTimestamp(),
+    };
+    const userMessageDocRef = await addDoc(messagesRef, messageToSave);
     const modelPlaceholderDocRef = await addDoc(messagesRef, { ...modelPlaceholder, timestamp: serverTimestamp() });
 
     try {
       const selectedSources = sourcesForActiveGroup.filter(s => sourceIds.includes(s.id));
-      const response = await geminiService.generateContentWithSources(promptForAI, selectedSources, activeModel);
+      // Prepara o histórico da conversa para enviar à API.
+      const conversationHistory = chatMessages
+        .filter(m => m.sender === MessageSender.USER || m.sender === MessageSender.MODEL)
+        .map(({ sender, text }) => ({ sender, text }));
+
+      const response = await geminiService.generateContentWithSources(promptForAI, selectedSources, activeModel, conversationHistory);
       
       // Cria o objeto base da mensagem final
       const finalMessage: Partial<ChatMessage> = { 
@@ -430,6 +460,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         isLoading: false, 
         model: response.modelName,
         usageMetadata: response.usageMetadata,
+        generatedFromId: userMessageDocRef.id, // Salva o ID da pergunta do usuário
       };
       // Adiciona urlContext apenas se ele existir, para evitar 'undefined' no Firestore.
       if (response.urlContextMetadata) {
@@ -689,7 +720,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const value = useMemo(() => ({
       conversations, groups, activeGroupId, activeConversationId, isSidebarOpen, chatMessages, isLoading, libraryItems, libraryItemsForActiveContext, activeGroup, sourcesForActiveGroup, chatPlaceholder, showModelSelect, activeConversationName, activeModel, isEvaluationPanelOpen, isLibraryPanelOpen, activeQuizData, theme,
-      setIsSidebarOpen, handleSetGroup, handleAddGroup, handleDeleteGroup, handleUpdateGroup, handleSetConversation, handleNewConversation, handleDeleteConversation, handleClearAllConversations, handleUrlAdd, handleFileAdd, handleRemoveSource, handleToggleSourceSelection, handleSaveToLibrary, handleDeleteLibraryItem, handleOpenLibraryItem, handleSendMessage, handleOptimizePrompt, handleGenerateMindMap, generateUsageReport, handleSetModel, handleMindMapLayoutChange, handleStartEvaluation, handleCloseEvaluation, setIsLibraryPanelOpen, setTheme
+      setIsSidebarOpen, handleSetGroup, handleAddGroup, handleDeleteGroup, handleUpdateGroup, handleSetConversation, handleNewConversation, handleDeleteConversation, handleClearAllData, handleUrlAdd, handleFileAdd, handleRemoveSource, handleToggleSourceSelection, handleSaveToLibrary, handleDeleteLibraryItem, handleOpenLibraryItem, handleSendMessage, handleOptimizePrompt, handleGenerateMindMap, generateUsageReport, handleSetModel, handleMindMapLayoutChange, handleStartEvaluation, handleCloseEvaluation, setIsLibraryPanelOpen, setTheme
   // The dependency array is simplified to only include state variables and functions
   // that are not guaranteed to be stable. Functions from `useState` setters or
   // `useCallback` with empty dependency arrays are stable and can be omitted.

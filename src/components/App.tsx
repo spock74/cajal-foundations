@@ -28,7 +28,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { buttonVariants } from "./ui/button";
+import { buttonVariants } from "./ui/button"; 
+import { firestore, functions } from "@/firebaseConfig";
+import { httpsCallable } from "firebase/functions";
+import { collection, getDocs, writeBatch } from "firebase/firestore";
 
 /**
  * A component responsible for initializing and managing Firestore listeners
@@ -99,7 +102,33 @@ const App: React.FC = () => {
     if (!user) return;
     const { dismiss } = toast({ title: "Limpando todos os dados...", description: "Aguarde." });
     try {
-      await store.handleClearAllConversations(user as unknown as User);
+      // Logic moved here from AppContext to resolve missing function in store
+      const batch = writeBatch(firestore);
+      const groupsRef = collection(firestore, 'users', user.uid, 'groups');
+      const groupsSnapshot = await getDocs(groupsRef);
+
+      for (const groupDoc of groupsSnapshot.docs) {
+        const sourcesRef = collection(groupDoc.ref, 'sources');
+        const sourcesSnapshot = await getDocs(sourcesRef);
+        sourcesSnapshot.forEach(sourceDoc => batch.delete(sourceDoc.ref));
+
+        const conversationsRef = collection(groupDoc.ref, 'conversations');
+        const conversationsSnapshot = await getDocs(conversationsRef);
+
+        for (const convoDoc of conversationsSnapshot.docs) {
+          const messagesRef = collection(convoDoc.ref, 'messages');
+          const messagesSnapshot = await getDocs(messagesRef);
+          messagesSnapshot.forEach(messageDoc => batch.delete(messageDoc.ref));
+          batch.delete(convoDoc.ref);
+        }
+        batch.delete(groupDoc.ref);
+      }
+
+      const libraryItemsRef = collection(firestore, 'users', user.uid, 'libraryItems');
+      const libraryItemsSnapshot = await getDocs(libraryItemsRef);
+      libraryItemsSnapshot.forEach(doc => batch.delete(doc.ref));
+
+      await batch.commit();
       toast({ title: "Limpeza Concluída" });
     } catch (error) {
       toast({ variant: "destructive", title: "Falha na Limpeza" });
@@ -137,14 +166,29 @@ const App: React.FC = () => {
   };
 
   const confirmDeleteMessage = async () => {
-    if (!user || !deleteDialogState.messageId) return;
+    if (!user || !deleteDialogState.messageId || !store.activeGroupId || !store.activeConversationId) {
+      toast({ variant: "destructive", title: "Erro", description: "Contexto inválido para apagar a mensagem." });
+      return;
+    }
     
     const { dismiss } = toast({ title: "Apagando mensagem..." });
+    const deleteMessageFn = httpsCallable(functions, 'deleteMessageCascade');
+
     try {
-      await store.handleDeleteMessage(deleteDialogState.messageId, user as unknown as User);
+      await deleteMessageFn({
+        groupId: store.activeGroupId,
+        conversationId: store.activeConversationId,
+        messageId: deleteDialogState.messageId,
+      });
       toast({ title: "Mensagem apagada com sucesso." });
     } catch (error) {
-      toast({ variant: "destructive", title: "Erro ao apagar mensagem", description: (error as Error).message });
+      const err = error as any;
+      toast({ 
+        variant: "destructive", 
+        title: "Erro ao apagar mensagem", 
+        description: err.message || "Não foi possível apagar a mensagem e seus dados associados." 
+      });
+      console.error("Erro na exclusão em cascata:", error);
     } finally {
       dismiss();
       setDeleteDialogState({ isOpen: false });
@@ -197,6 +241,7 @@ const App: React.FC = () => {
             ) : (
               <ChatInterface 
                 messages={store.chatMessages} 
+                activeConversationId={store.activeConversationId} // NOSONAR
                 activeSources={store.sourcesForActiveGroup} 
                 conversationTitle={activeConversationName} 
                 onSendMessage={(query, sourceIds, actualPrompt, generatedFrom) => user && store.handleSendMessage(query, sourceIds, user as unknown as User, actualPrompt, generatedFrom)} 

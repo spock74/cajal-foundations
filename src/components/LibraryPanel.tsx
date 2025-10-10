@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { FileText, Trash2, FileSearch, Settings, HelpCircle, Bot, Code, Share2, BrainCircuit, TrendingUp, X } from 'lucide-react';
+import { FileText, Trash2, FileSearch, Settings, HelpCircle, Bot, Code, Share2, BrainCircuit, TrendingUp, X, Bookmark } from 'lucide-react';
 import { LibraryItem } from '../types';
 import { useAppStore } from '@/stores/appStore';
 import MessageInfoTrigger from './MessageInfoTrigger';
@@ -101,15 +101,22 @@ const LibraryPanel: React.FC<LibraryPanelProps> = ({ items, onDeleteItem, onItem
 
               return (
                 <div key={item.id} onClick={() => onItemClick && onItemClick(item)} className={bubbleClasses}>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-shrink-0 mt-0.5">
+                      {item.type === 'mindmap' ? (
+                        <BrainCircuit size={16} className="text-blue-400" />
+                      ) : (
+                        <Bookmark size={16} className="text-purple-400" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-grow">
                       {isGenerated ? (
                         <>
                           <p className="text-sm font-semibold text-white dark:text-gray-100">{item.generatedFrom?.question_title}</p>
                           <p className="text-xs text-white/80 dark:text-gray-300/80 mt-1">{item.generatedFrom?.description}</p>
                         </>
                       ) : (
-                        <p className="line-clamp-4">{item.content}</p>
+                        <p className="line-clamp-4 font-medium">{item.content}</p>
                       )}
                     </div>
                     <button

@@ -11,11 +11,12 @@ import {createAuthenticatedFunction} from "./functionWrapper.js";
 import {optimizePrompt} from "./optimizePrompt.js";
 import {generateContent} from "./generateContent.js";
 import {getInitialSuggestions} from "./getInitialSuggestions.js";
+import {deleteMessageCascade} from "./deleteMessageCascade.js";
 import {generateMindMap} from "./generateMindMap.js";
 
 setGlobalOptions({maxInstances: 10});
 
-export const generateTitle = createAuthenticatedFunction<{text: string}, Promise<{title: string}>>(async (request) => { // NOSONAR
+const generateTitle = createAuthenticatedFunction<{text: string}, Promise<{title: string}>>(async (request) => { // NOSONAR
   const firstMessage = request.data.text;
   if (!firstMessage || typeof firstMessage !== "string") {
     logger.error("A requisição não continha um texto válido.", {
@@ -49,4 +50,11 @@ export const generateTitle = createAuthenticatedFunction<{text: string}, Promise
   }
 });
 
-export {optimizePrompt, generateContent, getInitialSuggestions, generateMindMap};
+export {
+  generateTitle,
+  optimizePrompt,
+  generateContent,
+  getInitialSuggestions,
+  generateMindMap,
+  deleteMessageCascade,
+};
