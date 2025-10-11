@@ -2,13 +2,12 @@
  * @author José E. Moraes
  * @copyright 2025 - Todos os direitos reservados
  */
-
 import React from 'react'; // NOSONAR
 import { marked } from 'marked'; 
 import { markedHighlight } from "marked-highlight";
 import hljs from 'highlight.js';
 import MindMapWrapper from './MindMapDisplay'; // NOSONAR
-import { ChatMessage, MessageSender } from '../types'; // NOSONAR
+import { ChatMessage, MessageSender, OptimizedPrompt } from '../types'; // NOSONAR
 import MessageActions from './MessageActions';
 import OptimizedPrompts from './OptimizedPrompts';
 import MessageInfoTrigger from './MessageInfoTrigger';
@@ -26,11 +25,11 @@ marked.use(markedHighlight({
 interface MessageItemProps {
   message: ChatMessage; // NOSONAR
   firestoreDocId: string; // ID do documento no Firestore
-  onSendMessage?: (query: string, sourceIds: string[], actualPrompt?: string) => void;
+  onSendMessage?: (query: string, sourceIds: string[], actualPrompt?: string, generatedFrom?: OptimizedPrompt) => void;
   onToggleMindMap?: (firestoreDocId: string) => void;
   onMindMapLayoutChange?: (messageId: string, layout: { expandedNodeIds?: string[], nodePositions?: { [nodeId: string]: { x: number, y: number } } }) => void;
   onSaveToLibrary?: (message: ChatMessage) => void;
-  onDeleteMessage?: (messageId: string, messageText: string) => void;
+  onDeleteMessage?: (messageId: string, messageText: string) => void; // Agora será requestDeleteMessage
   showAiAvatar: boolean;
 }
 

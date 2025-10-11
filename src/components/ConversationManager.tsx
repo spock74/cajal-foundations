@@ -1,9 +1,8 @@
 /**
  * @author José E. Moraes
- * @copyright 2025 - Todos os direitos reservados
+ * @copyright 2025 - Todos os direitos reservados // NOSONAR
  */
 import React, { useState } from 'react';
-import { Conversation, KnowledgeSource, KnowledgeGroup } from '../types';
 import { Plus, Trash2, X, LogOut } from 'lucide-react';
 import {
   AlertDialog,
@@ -24,64 +23,41 @@ import {
 } from "@/components/ui/select";
 import { Button, buttonVariants } from '@/components/ui/button';
 import KnowledgeBaseManager from './KnowledgeBaseManager';
-import { useAuth } from '@/hooks/useAuth';
 import { modelOptions } from './models';
 import ConversationList from './ConversationList';
 import GroupManager from './GroupManager';
+import { useAppStore } from '@/stores/appStore';
 
 interface ConversationManagerProps {
-  // Grupos
-  groups: KnowledgeGroup[];
-  activeGroupId: string | null;
-  onSetGroupId: (id: string) => void;
-  onAddGroup: (name: string) => void;
-  onDeleteGroup: (groupId: string) => void;
-  onUpdateGroup: (groupId: string, newName: string) => void;
-  // Conversas
-  conversations: Conversation[];
-  activeConversationId: string | null;
-  onSetConversationId: (id: string) => void;
-  onNewConversation: () => void;
-  onDeleteConversation: (id: string) => void;
-  // Fontes
-  sourcesForActiveGroup: KnowledgeSource[];
-  onUrlAdd: (url: string) => void;
-  onFileAdd: (file: File) => void;
-  onRemoveSource: (sourceId: string) => void;
-  onToggleSourceSelection: (sourceId: string) => void;
-  // Modelo
-  activeModel: string;
-  onSetModel: (modelName: string) => void;
-  showModelSelect: boolean;
-  // Controles Gerais
-  onClearAll: () => void;
   onCloseSidebar?: () => void;
 }
 
-const ConversationManager: React.FC<ConversationManagerProps> = ({
-  groups,
-  activeGroupId,
-  onSetGroupId,
-  onAddGroup,
-  onDeleteGroup,
-  onUpdateGroup,
-  conversations,
-  activeConversationId,
-  sourcesForActiveGroup,
-  onSetConversationId,
-  onNewConversation,
-  onDeleteConversation,
-  onClearAll,
-  onCloseSidebar,
-  onUrlAdd,
-  onFileAdd,
-  onRemoveSource,
-  onToggleSourceSelection,
-  activeModel,
-  onSetModel,
-  showModelSelect,
-}) => {
-  const { user, logOut } = useAuth();
+const ConversationManager: React.FC<ConversationManagerProps> = ({ onCloseSidebar }) => {
+  const {
+    user,
+    logOut,
+    groups,
+    activeGroupId,
+    handleSetGroup,
+    handleAddGroup,
+    handleDeleteGroup,
+    handleUpdateGroup,
+    conversations,
+    activeConversationId,
+    handleSetConversation,
+    handleNewConversation,
+    handleDeleteConversation,
+    sourcesForActiveGroup,
+    handleUrlAdd,
+    handleFileAdd,
+    handleRemoveSource,
+    handleToggleSourceSelection,
+    activeModel,
+    handleSetModel,
+    showModelSelect,
+    handleClearAll,
+  } = useAppStore();
+
   const [dialogState, setDialogState] = useState<{
     isOpen: boolean;
     title: string;
@@ -101,7 +77,7 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
         isDestructive: false,
       });
     } else {
-      onNewConversation();
+      handleNewConversation();
     }
   };
 
@@ -111,7 +87,7 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
         isOpen: true,
         title: `Apagar "${name}"?`,
         description: "Esta ação não pode ser desfeita. A conversa e todas as suas mensagens serão permanentemente removidas.",
-        onConfirm: () => onDeleteConversation(id),
+        onConfirm: () => handleDeleteConversation(id),
         isDestructive: true,
       });
     } else if (type === 'all') {
@@ -119,7 +95,7 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
         isOpen: true,
         title: "Apagar TODAS as conversas?",
         description: "Esta ação não pode ser desfeita. Todas as conversas neste tópico serão permanentemente removidas.",
-        onConfirm: onClearAll,
+        onConfirm: handleClearAll,
         isDestructive: true,
       });
     }
@@ -154,10 +130,10 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
         <GroupManager
           groups={groups}
           activeGroupId={activeGroupId}
-          onSetGroupId={onSetGroupId}
-          onAddGroup={onAddGroup}
-          onDeleteGroup={onDeleteGroup}
-          onUpdateGroup={onUpdateGroup}
+          onSetGroupId={handleSetGroup}
+          onAddGroup={handleAddGroup}
+          onDeleteGroup={handleDeleteGroup}
+          onUpdateGroup={handleUpdateGroup}
         />
 
         {/* Seletor de Modelo */}
@@ -166,7 +142,7 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
             <label className="block text-sm font-medium text-gray-500 dark:text-[#A8ABB4]">
               Modelo da IA
             </label>
-            <Select value={activeModel} onValueChange={onSetModel}>
+            <Select value={activeModel} onValueChange={handleSetModel}>
               <SelectTrigger className="w-full h-9 text-sm bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10">
                 <SelectValue placeholder="Selecione um modelo..." />
               </SelectTrigger>
@@ -182,7 +158,7 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
         <ConversationList
           conversations={conversations}
           activeConversationId={activeConversationId}
-          onSetConversationId={onSetConversationId}
+          onSetConversationId={handleSetConversation}
           onConfirmDelete={(id, name) => confirmDeletion('single', id, name)}
         />
 
@@ -190,10 +166,10 @@ const ConversationManager: React.FC<ConversationManagerProps> = ({
           {activeGroupId ? (
             <KnowledgeBaseManager
               sources={sourcesForActiveGroup}
-              onUrlAdd={onUrlAdd}
-              onFileAdd={onFileAdd}
-              onRemoveSource={onRemoveSource}
-              onToggleSourceSelection={onToggleSourceSelection}
+              onUrlAdd={handleUrlAdd}
+              onFileAdd={handleFileAdd}
+              onRemoveSource={handleRemoveSource}
+              onToggleSourceSelection={handleToggleSourceSelection}
             />
           ) : (
             <div className="p-4 h-full flex items-center justify-center text-center">
